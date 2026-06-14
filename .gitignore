@@ -39,3 +39,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# os
+Thumbs.db
+
+# local files
+*.local
+
+# public assets (design files, local images)
+/public/images/
