@@ -54,3 +54,18 @@ Thumbs.db
 
 # public assets (design files, local images)
 /public/images/
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf

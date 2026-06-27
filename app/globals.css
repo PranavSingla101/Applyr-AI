@@ -1,9 +1,8 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  /* Font */
-  --font-sans: "Inter", sans-serif;
-
+:root {
   /* Page and surface backgrounds */
   --color-background: #f6f7fb;
   --color-surface: #ffffff;
@@ -80,5 +79,4 @@
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-family: var(--font-sans);
 }
