@@ -35,9 +35,7 @@ export function Navbar() {
     { name: "Profile", href: "/profile" },
   ];
 
-  // While checking auth, read the cookie synchronously to avoid flickering
-  const hasTokenCookie = typeof document !== "undefined" && document.cookie.includes("insforge_access_token");
-  const showAuthLinks = isAuthenticated !== null ? isAuthenticated : hasTokenCookie;
+  const showAuthLinks = isAuthenticated === true;
 
   return (
     <header className="w-full bg-surface border-b border-border sticky top-0 z-50">
