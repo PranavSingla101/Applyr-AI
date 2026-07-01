@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 export function Hero() {
   return (
@@ -30,12 +33,14 @@ export function Hero() {
         <div className="mt-8 flex items-center gap-3">
           <Link
             href="/login"
+            onClick={() => posthog.capture("hero_cta_clicked", { cta_text: "Get Started" })}
             className="bg-text-primary text-accent-foreground px-5 py-2.5 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Get Started
           </Link>
           <Link
             href="/login"
+            onClick={() => posthog.capture("hero_cta_clicked", { cta_text: "Find Your First Match" })}
             className="bg-surface border border-border text-text-primary px-5 py-2.5 rounded-md text-sm font-medium hover:bg-surface-secondary transition-colors"
           >
             Find Your First Match

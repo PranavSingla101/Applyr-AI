@@ -4,27 +4,33 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { insforge } from "@/lib/insforge-client";
+import { insforge, getSessionUser } from "@/lib/insforge-client";
+import posthog from "posthog-js";
 
 export function Navbar() {
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await insforge.auth.getCurrentUser();
-      setIsAuthenticated(data?.user !== null);
-    };
-    
-    checkAuth();
+    const user = getSessionUser();
+    setIsAuthenticated(user !== null);
+    if (user) {
+      posthog.identify(user.id, {
+        email: user.email,
+      });
+    }
   }, [pathname]);
 
   const handleSignOut = async () => {
     try {
+      posthog.capture("user_signed_out");
+      posthog.reset();
       await insforge.auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
       setIsAuthenticated(false);
       window.location.href = "/";
     } catch (err) {
+      posthog.captureException(err);
       console.error("[Navbar/signOut]", err);
     }
   };
@@ -83,6 +89,7 @@ export function Navbar() {
           ) : (
             <Link
               href="/login"
+              onClick={() => posthog.capture("navbar_get_started_clicked")}
               className="bg-text-primary text-accent-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Get Started

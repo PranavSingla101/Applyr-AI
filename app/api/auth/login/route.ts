@@ -23,8 +23,11 @@ export async function GET(request: NextRequest) {
   });
 
   if (error || !data?.url) {
+    const msg = error?.message ?? (data?.url ? "no_url" : "unknown");
     console.error("[auth/login] OAuth init failed", error);
-    return NextResponse.redirect(new URL("/login?error=oauth_failed", request.url));
+    const errUrl = new URL("/login", request.url);
+    errUrl.searchParams.set("error", msg);
+    return NextResponse.redirect(errUrl);
   }
 
   const cookieStore = await cookies();

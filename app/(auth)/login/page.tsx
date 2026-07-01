@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 const ShieldIcon = () => (
   <svg className="h-3.5 w-3.5 text-accent" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -28,19 +29,26 @@ const GithubIcon = () => (
 );
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [loading, setLoading] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
+  const urlDetail = searchParams.get("detail");
   const [error, setError] = useState<string | null>(
-    urlError === "oauth_failed" ? "OAuth sign-in failed. Please try again."
-    : urlError === "missing_verifier" ? "Session expired. Please try again."
-    : urlError === "exchange_failed" ? "Failed to complete sign-in. Please try again."
-    : urlError ?? null
+    urlError ? (urlDetail ? `${urlError}: ${urlDetail}` : urlError) : null
   );
 
   const handleLogin = (provider: "google" | "github") => {
     setLoading(provider);
     setError(null);
+    posthog.capture("login_provider_selected", { provider });
     const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
     const url = `/api/auth/login?provider=${provider}&redirectTo=${encodeURIComponent(redirectTo)}`;
     window.location.href = url;

@@ -69,3 +69,5 @@ Thumbs.db
 .roo
 .trae
 .windsurf
+.env.local
+.mcp.json
