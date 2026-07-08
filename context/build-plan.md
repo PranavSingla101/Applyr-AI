@@ -117,40 +117,41 @@ Wire profile form to InsForge DB.
 
 ### 07 AI Profile Extraction from Resume
 
-Extract from Resume button — GPT-4o reads uploaded PDF and auto-fills profile form fields.
+Extract from Resume button — GPT-5.4 nano reads uploaded PDF and auto-fills blank profile form fields.
 
 **UI:**
 
 - Extract from Resume button appears after resume is uploaded
 - Loading state while processing
-- Form fields populate automatically after extraction
+- Blank form fields populate automatically after extraction — fields the user already filled in are left untouched (merge, not overwrite)
 - User reviews and edits if needed before saving
 
 **Logic:**
 
 - pdf-parse extracts raw text from uploaded PDF buffer
 - If extracted text is empty or too short — return error: "Could not extract text from this PDF. Please try a different file."
-- GPT-4o reads extracted text and returns structured JSON matching all profile field names
-- Form fields populated with extracted data
+- GPT-5.4 nano reads extracted text and returns structured JSON matching all profile field names
+- Client merges extracted data into form state — only fields that are currently blank are filled; non-blank fields keep the user's existing value
 - User saves manually after reviewing
 
 ---
 
 ### 08 Resume PDF Generation from Profile
 
-Generate a clean professional PDF resume from current profile data using GPT-4o.
+Generate a clean professional PDF resume from current profile data using GPT-5.4 nano.
 
 **Logic:**
 
 - POST /api/resume/generate
 - Reads current profile data from profiles table
-- GPT-4o generates professional resume content:
+- Requires full_name and at least one work experience entry with company + title filled — otherwise returns an error asking the user to complete their profile first
+- GPT-5.4 nano generates professional resume content:
   - Professional summary paragraph
-  - Polished work experience bullet points
+  - Polished work experience bullet points (3-5 per role, GPT-5.4 nano's judgment)
   - Clean professional language throughout
-- @react-pdf/renderer renders GPT-4o output into clean single-page PDF using renderToBuffer()
-- Buffer uploaded to InsForge Storage at resumes/{user_id}/resume.pdf with upsert: true
-- resume_pdf_url updated in profiles table
+- @react-pdf/renderer renders the generated content into a clean single-page PDF using renderToBuffer()
+- Buffer uploaded to InsForge Storage at resumes/{user_id}/generated-resume.pdf — a separate path from the user's uploaded resume (resumes/{user_id}/resume.pdf), so generating a resume never overwrites the original upload that Extract reads from
+- generated_resume_pdf_url/generated_resume_pdf_key updated in profiles table
 
 ---
 

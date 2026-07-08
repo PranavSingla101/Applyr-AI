@@ -72,3 +72,93 @@ Last updated: 2026-07-01
 **Pattern notes:**
 Navbar uses `bg-surface` (not `bg-background`). Buttons use `rounded-md` — not `rounded-lg`. Primary CTA uses `hover:opacity-90` pattern (no bg-change on hover). Secondary actions use `hover:bg-surface-secondary`. Nav links have `gap-8` between items.
 
+---
+
+### Standard Content Card (Profile page)
+File: `components/profile/CompletionIndicator.tsx`, `components/profile/ResumeUpload.tsx`, `components/profile/ProfileForm.tsx`
+Last updated: 2026-07-01
+
+| Property | Class |
+| --- | --- |
+| Card shell | `rounded-2xl border border-border bg-surface p-6` |
+| Card shadow | `shadow-[0px_1px_3px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]` |
+| Page column width | `max-w-3xl mx-auto px-6 py-8` |
+| Gap between stacked cards | `flex flex-col gap-6` |
+| Card heading | `text-base font-semibold text-text-primary` |
+| Card subtitle | `text-sm text-text-secondary mt-1` |
+| Section heading (inside card) | `text-sm font-semibold text-text-primary mb-4` |
+| Section divider | `mt-6 pt-6 border-t border-border` |
+
+**Pattern notes:**
+This is the canonical white-card shell for any content section — matches `ui-tokens.md`'s Card spec exactly (`rounded-2xl`, not `rounded-xl`; the two-layer shadow, not `shadow-sm`). A page built from multiple cards stacks them in a `max-w-3xl` centered column with `gap-6`. A card that has several internal subsections (like the profile form) uses one continuous card with `border-t` dividers between subsections rather than separate cards per subsection — only split into separate cards for things that are conceptually distinct top-level sections (banner / resume upload / form).
+
+---
+
+### Form Fields (Profile page)
+File: `components/profile/ProfileForm.tsx`
+Last updated: 2026-07-01
+
+| Property | Class |
+| --- | --- |
+| Field label | `text-xs font-medium uppercase tracking-wide text-text-secondary` |
+| Field layout | `flex flex-col gap-1.5` |
+| Two-column grid | `grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5` |
+| Full-width field in grid | add `md:col-span-2` |
+| Text input | `w-full bg-surface border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent` |
+| Disabled input | `disabled:bg-surface-secondary disabled:text-text-muted disabled:cursor-not-allowed` |
+| Select | same as text input + `appearance-none pr-9 cursor-pointer`, paired with an absolutely positioned `ChevronDown` (`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted`) |
+| Textarea | text input classes + `resize-none`, `rows={3}` |
+| Tag/pill (skills, industries) | `flex items-center gap-1.5 bg-surface-secondary border border-border rounded-full pl-3 pr-2 py-1 text-sm font-medium text-text-primary`, remove icon `text-text-muted hover:text-error` |
+| Secondary button (Add, Select Resume) | `bg-surface border border-border text-text-primary px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-secondary transition-colors cursor-pointer` |
+| Primary button (Save, Generate) | `bg-accent text-accent-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer` |
+| Full-width primary (Save Profile) | primary button classes + `w-full py-3` |
+| Inline text link/action (Add role) | `flex items-center gap-1 text-sm font-medium text-accent hover:opacity-80 cursor-pointer` |
+
+**Pattern notes:**
+Labels are always uppercase/`text-xs`/`text-text-secondary` — never the 14px `text-text-secondary` "Card label" size from `ui-tokens.md`; the profile form's denser field grid needed the smaller label. Repeatable groups (work experience roles) reuse the same two-column grid per entry, separated by `border-t border-border` when more than one exists, with a small `text-error` "Remove" action shown only when count > 1 — never on the first entry. Checkbox-linked disable pattern (`Currently working here` → disables End Date) reuses the standard disabled input classes rather than hiding the field.
+
+---
+
+### Suggestion Bubble (Profile page — resume extraction conflicts)
+File: `components/profile/SuggestionBubble.tsx`
+Last updated: 2026-07-07
+
+| Property | Class |
+| --- | --- |
+| Bubble shell | `inline-flex max-w-full items-center gap-1.5 rounded-full bg-accent-muted border border-accent/20 pl-3 pr-1.5 py-1 text-xs font-medium text-accent` |
+| Apply action (bubble text itself) | `truncate hover:underline cursor-pointer` |
+| Dismiss action | `shrink-0 text-accent/60 hover:text-accent cursor-pointer`, `X` icon `h-3 w-3` |
+
+**Pattern notes:**
+Used when resume extraction (Feature 07) disagrees with a value the user already typed into a scalar field — rendered inline below the input via `Field`'s new optional `suggestion` slot (`ProfileForm.tsx`), never replacing the input itself. Uses `bg-accent-muted`/`text-accent` (the same pairing `ui-tokens.md` assigns to "missing skill" badges) rather than `info` or `warning` tokens — this is framed as an AI suggestion to consider, not an error or a neutral info banner. Clicking the bubble text applies the suggested value (overwriting what the user typed); clicking the `X` dismisses it and keeps the user's original value. Only wired for scalar fields (`ScalarProfileField` in `lib/profile.ts`) — array fields (skills/industries) and block fields (workExperience/education) are excluded, since merge-vs-conflict doesn't map cleanly onto lists or nested objects.
+
+---
+
+### View Generated Resume Link (Profile page — resume generation)
+File: `components/profile/ResumeUpload.tsx`
+Last updated: 2026-07-07
+
+| Property | Class |
+| --- | --- |
+| Link (active) | `flex items-center gap-1.5 bg-surface border border-border text-text-primary px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-secondary transition-colors cursor-pointer`, `Eye` icon `h-4 w-4` |
+| Disabled placeholder (same slot) | `flex items-center gap-1.5 bg-surface-secondary border border-border text-text-muted px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed`, same `Eye` icon |
+
+**Pattern notes:**
+Active-state classes are identical to the existing "View Current Resume" link (same file) — reused verbatim since both are "open a private PDF in a new tab" actions. Unlike "View Current Resume" (which is omitted entirely until a resume exists), this one **always renders** in the same slot next to "Generate Resume from Profile" — before a resume has been generated it renders as a greyed-out, non-interactive `<span>` (not an `<a>`) with the disabled classes above, so the layout doesn't shift when a generated resume first appears. Swaps to the active link once `generated_resume_pdf_key` exists (i.e. after a successful `/api/resume/generate` call).
+
+---
+
+### Completion Ring
+File: `components/profile/CompletionIndicator.tsx`
+Last updated: 2026-07-01
+
+| Property | Class |
+| --- | --- |
+| Track circle | `stroke-error/15` |
+| Progress circle | `stroke-error`, `strokeLinecap="round"` |
+| Center percentage text | `text-2xl font-bold text-text-primary` |
+| Missing-field pill | `px-2.5 py-1 rounded-full bg-error/10 text-error text-xs font-semibold uppercase tracking-wide` |
+
+**Pattern notes:**
+Ring color is `error` (red), not `accent` — this is a "needs attention" indicator, not a generic progress/stat ring, so it intentionally does not reuse the purple accent used elsewhere for progress bars. Built with a raw SVG circle pair (track + `strokeDasharray`/`strokeDashoffset` progress) rather than a canvas or third-party chart — no charting dependency justified for a single static ring.
+

@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "@insforge/sdk": "^1.4.0",
+    "@react-pdf/renderer": "^4.5.1",
     "lucide-react": "^1.18.0",
     "next": "16.2.9",
+    "openai": "^6.45.0",
+    "pdf-parse": "^2.4.5",
     "posthog-js": "^1.386.6",
     "posthog-node": "^5.37.0",
     "react": "19.2.4",

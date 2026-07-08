@@ -9,7 +9,8 @@
 | Cloud browser                  | Browserbase              | Company research — browsing company public pages |
 | AI browser control             | Stagehand                | Company page interaction and content extraction  |
 | Job Discovery                  | Adzuna API               | Job search and discovery                         |
-| AI model                       | OpenAI GPT-4o            | Matching, research synthesis, extraction         |
+| AI model                       | OpenAI GPT-4o            | Matching, research synthesis, job description extraction |
+| AI model                       | OpenAI GPT-5.4 nano      | Resume profile extraction and resume generation  |
 | Analytics                      | PostHog                  | Event tracking and dashboard charts              |
 | PDF generation                 | @react-pdf/renderer      | Resume PDF rendering                             |
 | Styling                        | Tailwind CSS + shadcn/ui | UI components and styling                        |
@@ -218,6 +219,9 @@ URL saved to profiles table
 | portfolio_url       | text        |                                              |
 | work_authorization  | text        | citizen / permanent_resident / visa_required |
 | resume_pdf_url      | text        | InsForge Storage URL of current resume       |
+| resume_pdf_key      | text        | InsForge Storage key of current resume       |
+| generated_resume_pdf_url | text    | InsForge Storage URL of AI-generated resume  |
+| generated_resume_pdf_key | text    | InsForge Storage key of AI-generated resume  |
 | is_complete         | boolean     | True when all required fields filled         |
 | created_at          | timestamptz |                                              |
 | updated_at          | timestamptz |                                              |
@@ -281,7 +285,8 @@ URL saved to profiles table
 
 | Bucket  | Path                         | Contents                  |
 | ------- | ---------------------------- | ------------------------- |
-| resumes | resumes/{user_id}/resume.pdf | Current active resume PDF |
+| resumes | resumes/{user_id}/resume.pdf | Current active (uploaded) resume PDF |
+| resumes | resumes/{user_id}/generated-resume.pdf | AI-generated resume PDF — separate from the uploaded resume so generation never overwrites it |
 
 Access: authenticated users only, own files only.
 

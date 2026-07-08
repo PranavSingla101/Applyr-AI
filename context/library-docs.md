@@ -490,7 +490,7 @@ const response = await openai.chat.completions.create({
 - If browser research returns empty — still run synthesis with job + profile only
 - yourEdge, gapsToAddress, and smartQuestions are the most valuable fields — never skip them
 
-## OpenAI GPT-4o
+## OpenAI GPT-4o / GPT-5.4 nano
 
 **Check first:** Check AGENTS.md for an installed OpenAI skill. The skill will have the latest API patterns and model capabilities.
 
@@ -529,12 +529,13 @@ const result = JSON.parse(response.choices[0].message.content!);
 
 - Job matching + scoring: `300`
 - Company research synthesis: `800`
-- Resume generation: `1000`
-- Profile extraction from resume: `800`
+- Resume generation: `1000` — **passed as `max_completion_tokens`, not `max_tokens`** (see rule below)
+- Profile extraction from resume: `800` — **passed as `max_completion_tokens`, not `max_tokens`** (see rule below)
 
 **Rules:**
 
-- Model string is always `'gpt-4o'` — never use other model names
+- Model string is always `'gpt-4o'` — never use other model names, **except resume profile extraction (Feature 07) and resume generation (Feature 08), which always use `'gpt-5.4-nano'`**
+- **`gpt-5.4-nano` rejects the legacy `max_tokens` parameter** (`400 Unsupported parameter`) — use `max_completion_tokens` instead. This only applies to `gpt-5.4-nano` calls (extraction and generation); `gpt-4o` calls elsewhere (matching, research synthesis) keep using `max_tokens` as shown above.
 - Always use `response_format: { type: 'json_object' }` for structured data
 - Always parse `response.choices[0].message.content` as string — even with json_object it returns a string
 - Always validate parsed JSON before using — wrap in try/catch
@@ -662,28 +663,26 @@ Only use these — others are silently ignored:
 
 **Check first:** Check AGENTS.md for an installed pdf-parse skill.
 
+**Version note:** this project is on `pdf-parse` v2, which replaced the old `pdf(buffer)` default-export function with a `PDFParse` class (`getText()`, `getInfo()`, etc.). Do not use the v1 pattern.
+
 ### Extract Text from Uploaded Resume
 
 ```typescript
-import pdf from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 
-// In API route handling resume upload
-export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get("resume") as File;
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+// In an API route — e.g. downloading the resume from storage server-side
+const parser = new PDFParse({ data: buffer }); // buffer: Buffer | Uint8Array
+const result = await parser.getText();
+await parser.destroy();
+const extractedText = result.text; // raw text content
 
-  const pdfData = await pdf(buffer);
-  const extractedText = pdfData.text; // raw text content
-
-  // Send to GPT-4o for structured extraction
-}
+// Send to GPT-5.4 nano for structured extraction
 ```
 
 **Rules:**
 
 - Server-side only — never import in client components
-- `pdfData.text` is raw unformatted text — GPT-4o handles the structure extraction
+- `result.text` is raw unformatted text — GPT-5.4 nano handles the structure extraction
+- Always call `parser.destroy()` after use
 - Always handle parse errors — some PDFs are image-based and return empty text
-- If `pdfData.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
+- If `result.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
