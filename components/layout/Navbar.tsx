@@ -1,33 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import Image from "next/image";
+import applyrLogo from "@/public/Applyr-AI-Logo.png";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { insforge, getSessionUser } from "@/lib/insforge-client";
+import { getSessionUser } from "@/lib/insforge-client";
 import posthog from "posthog-js";
+
+function subscribeToAuthChanges(onStoreChange: () => void): () => void {
+  window.addEventListener("applyr-auth-changed", onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+
+  return () => {
+    window.removeEventListener("applyr-auth-changed", onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function getAuthSnapshot(): boolean {
+  return getSessionUser() !== null;
+}
+
+function getServerAuthSnapshot(): boolean {
+  return false;
+}
 
 export function Navbar() {
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const isAuthenticated = useSyncExternalStore(
+    subscribeToAuthChanges,
+    getAuthSnapshot,
+    getServerAuthSnapshot,
+  );
 
   useEffect(() => {
     const user = getSessionUser();
-    setIsAuthenticated(user !== null);
     if (user) {
       posthog.identify(user.id, {
         email: user.email,
       });
     }
-  }, [pathname]);
+  }, [isAuthenticated, pathname]);
 
   const handleSignOut = async () => {
     try {
       posthog.capture("user_signed_out");
       posthog.reset();
-      await insforge.auth.signOut();
-      await fetch("/api/auth/logout", { method: "POST" });
-      setIsAuthenticated(false);
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error("Sign out request failed");
+      }
+      window.dispatchEvent(new Event("applyr-auth-changed"));
       window.location.href = "/";
     } catch (err) {
       posthog.captureException(err);
@@ -48,12 +72,11 @@ export function Navbar() {
       <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center">
           <Image
-            src="/Applyr-AI-Logo.png"
+            src={applyrLogo}
             alt="Applyr AI"
-            width={100}
-            height={40}
+            sizes="48px"
             className="h-10 w-auto"
-            priority
+            preload
           />
         </Link>
 

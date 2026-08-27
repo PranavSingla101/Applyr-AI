@@ -1,10 +1,3 @@
-import { createBrowserClient } from "@insforge/sdk/ssr";
-
-export const insforge = createBrowserClient({
-  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  anonKey: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-});
-
 // The access token cookie is intentionally non-httpOnly so the client can read it
 // directly for UI purposes (e.g. show/hide the Sign Out button) without a network
 // round trip. This mirrors the same local JWT-expiry check proxy.ts already uses

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dashboardShot from "@/public/Dashboard-updated.png";
 import Link from "next/link";
 import posthog from "posthog-js";
 
@@ -50,12 +51,11 @@ export function Hero() {
         {/* Dashboard screenshot */}
         <div className="mt-12 w-full max-w-5xl rounded-2xl border border-border shadow-[0px_8px_40px_rgba(0,0,0,0.12)] overflow-hidden">
           <Image
-            src="/Dashboard-updated.png"
+            src={dashboardShot}
             alt="Applyr dashboard"
-            width={1200}
-            height={720}
+            sizes="(max-width: 1024px) 100vw, 1024px"
             className="w-full h-auto"
-            priority
+            preload
           />
         </div>
       </div>

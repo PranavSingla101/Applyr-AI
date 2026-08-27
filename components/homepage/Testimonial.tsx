@@ -1,4 +1,5 @@
 import Image from "next/image";
+import userIcon from "@/public/images/user-icon.png";
 
 export function Testimonial() {
   return (
@@ -12,10 +13,11 @@ export function Testimonial() {
 
         <div className="mt-8 flex items-center gap-3">
           <Image
-            src="/images/user-icon.png"
+            src={userIcon}
             alt="Alex M."
             width={48}
             height={48}
+            sizes="48px"
             className="rounded-full object-cover"
           />
           <div className="text-left">

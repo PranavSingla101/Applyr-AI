@@ -1,4 +1,5 @@
 import Image from "next/image";
+import applyrLogo from "@/public/Applyr-AI-Logo.png";
 import Link from "next/link";
 
 export function Footer() {
@@ -7,10 +8,9 @@ export function Footer() {
       <div className="max-w-[1440px] mx-auto px-6 py-8 flex items-center justify-between">
         <Link href="/" className="flex items-center">
           <Image
-            src="/Applyr-AI-Logo.png"
+            src={applyrLogo}
             alt="Applyr AI"
-            width={100}
-            height={40}
+            sizes="48px"
             className="h-10 w-auto"
           />
         </Link>

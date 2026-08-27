@@ -71,3 +71,6 @@ Thumbs.db
 .windsurf
 .env.local
 .mcp.json
+
+# InsForge project backups (contain user data — never commit)
+backups/

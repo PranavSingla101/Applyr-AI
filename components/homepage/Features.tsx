@@ -1,4 +1,6 @@
 import Image from "next/image";
+import jobsListShot from "@/public/images/jobs-lists.png";
+import agentLogShot from "@/public/images/agnet-log.png";
 
 type FeatureBullet = {
   title: string;
@@ -75,10 +77,9 @@ export function Features() {
 
           <div className="rounded-2xl border border-border shadow-[0px_4px_24px_rgba(0,0,0,0.08)] overflow-hidden">
             <Image
-              src="/images/jobs-lists.png"
+              src={jobsListShot}
               alt="Jobs list with AI match scores"
-              width={700}
-              height={480}
+              sizes="(max-width: 1024px) 100vw, 700px"
               className="w-full h-auto"
             />
           </div>
@@ -88,10 +89,9 @@ export function Features() {
         <div className="grid grid-cols-2 gap-16 items-center">
           <div className="rounded-2xl border border-border shadow-[0px_4px_24px_rgba(0,0,0,0.08)] overflow-hidden">
             <Image
-              src="/images/agnet-log.png"
+              src={agentLogShot}
               alt="AI agent researching companies"
-              width={700}
-              height={480}
+              sizes="(max-width: 1024px) 100vw, 700px"
               className="w-full h-auto"
             />
           </div>
@@ -109,7 +109,7 @@ export function Features() {
               <p className="mt-4 text-sm font-medium text-text-secondary leading-relaxed">
                 Before you click apply, Applyr hands you a complete briefing —
                 company overview, tech stack, culture signals, why this role
-                exists, and the questions that show you've done your homework.
+                exists, and the questions that show you&apos;ve done your homework.
               </p>
             </div>
 

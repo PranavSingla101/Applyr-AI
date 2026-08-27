@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import applyrLogo from "@/public/Applyr-AI-Logo.png";
 import Link from "next/link";
 import posthog from "posthog-js";
 
@@ -61,12 +62,11 @@ function LoginForm() {
         <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <Image
-              src="/Applyr-AI-Logo.png"
+              src={applyrLogo}
               alt="Applyr AI"
-              width={100}
-              height={40}
+              sizes="48px"
               className="h-10 w-auto"
-              priority
+              preload
             />
           </Link>
 

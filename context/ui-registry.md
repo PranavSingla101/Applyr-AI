@@ -68,9 +68,12 @@ Last updated: 2026-07-01
 | Primary CTA | `bg-text-primary text-accent-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity` |
 | Secondary button | `border border-border text-text-primary px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-secondary transition-colors cursor-pointer` |
 | Right group gap | `gap-4` |
+| Logo image dimensions | `width={630} height={533}` with `className="h-10 w-auto"` |
+| Above-fold image loading | `preload` |
 
 **Pattern notes:**
 Navbar uses `bg-surface` (not `bg-background`). Buttons use `rounded-md` — not `rounded-lg`. Primary CTA uses `hover:opacity-90` pattern (no bg-change on hover). Secondary actions use `hover:bg-surface-secondary`. Nav links have `gap-8` between items.
+The logo keeps the source image's intrinsic 630:533 ratio while CSS controls its rendered height, preventing Next Image aspect-ratio warnings. Above-fold images use Next 16's `preload` prop.
 
 ---
 
@@ -161,4 +164,3 @@ Last updated: 2026-07-01
 
 **Pattern notes:**
 Ring color is `error` (red), not `accent` — this is a "needs attention" indicator, not a generic progress/stat ring, so it intentionally does not reuse the purple accent used elsewhere for progress bars. Built with a raw SVG circle pair (track + `strokeDasharray`/`strokeDashoffset` progress) rather than a canvas or third-party chart — no charting dependency justified for a single static ring.
-
