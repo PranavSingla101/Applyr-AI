@@ -1,58 +1,61 @@
-# Memory — Resume Generation (Feature 08) + InsForge Project Migration
+# Memory — Phase 5 Dashboard (Features 14–17) — build plan complete
 
-Last updated: 2026-08-27
+Last updated: 2026-08-29
 
 ## What was built
 
-**Feature 08 — Resume PDF Generation from Profile (complete, committed in `d91eecc`)**
+**Features 14, 15, 16, 17 — the whole dashboard, mock UI through to real data. All 17 features in `build-plan.md` are now built. Everything is uncommitted.**
 
-- `app/api/resume/generate/route.ts` (new) — loads the profile, gates on `full_name` plus at least one work-experience entry with company+title, calls **GPT-5.4 nano** (`max_completion_tokens: 1000`) to write a professional summary and 3–5 polished bullets per role from the raw `responsibilities` text, renders through `lib/pdf/ResumeDocument.tsx` with `@react-pdf/renderer`'s `renderToBuffer()`, uploads to storage, updates `profiles`.
-- `app/api/resume/generated/route.ts` (new) — download route, mirrors `app/api/resume/route.ts`.
-- `lib/pdf/ResumeDocument.tsx` (new) — the react-pdf document.
-- `migrations/20260707135434_add-generated-resume-columns.sql` (applied) — `profiles.generated_resume_pdf_url` / `generated_resume_pdf_key`.
-- `components/profile/ResumeUpload.tsx` — "View Generated Resume" link plus loading/error state for the previously unwired `onGenerateResume` button.
-- **08a fix** — extraction results were never persisted: `handleExtract` in `ProfilePageClient.tsx` only set local React state. Added a `persistValues()` helper calling the existing `saveProfile()` Server Action, invoked after the blank-fill merge and after `handleAcceptSuggestion`.
-
-**Backend migration + client cleanup (committed and pushed as `2e5aba7`, 2026-08-27)**
-
-- Repointed the app at a **new InsForge project** (appkey `jbhjs7m4`, API base `https://jbhjs7m4.us-east.insforge.app`). Details in `context/progress-tracker.md` entry INF-1.
-- `lib/insforge-client.ts` — removed the globally-instantiated `createBrowserClient()`; sign-out now goes through the existing `/api/auth/logout` route only.
-- `components/layout/Navbar.tsx` — auth state moved to `useSyncExternalStore` driven by a custom `applyr-auth-changed` window event plus `storage`, replacing pathname-keyed `useState`.
-- `instrumentation-client.ts` + `lib/posthog-client.ts` — `advanced_disable_feature_flags: true` (Applyr doesn't use flags; kills dev-console noise). Event capture unchanged.
-- `next.config.ts` — added `images.minimumCacheTTL: 2678400`; without it the optimizer inherited `max-age=0, must-revalidate` from `/public` and images blanked out and re-fetched on every navigation.
-- Logo/hero images — intrinsic 630×533 dimensions with `h-10 w-auto`, and Next 16's `preload` in place of the deprecated `priority`. Homepage/login component polish across `Hero`, `Features`, `Testimonial`, `Navbar`, `Footer`, `login/page.tsx`.
-- `.gitignore` — `backups/` ignored (holds user email + profile data).
+- `app/dashboard/page.tsx` — replaced the "welcome" placeholder with the real page. Server component; five user-scoped InsForge queries in one `Promise.all` feed every panel.
+- `components/dashboard/` — `StatsBar.tsx`, `RecentActivity.tsx`, `ProfileBanner.tsx`, `ChartCard.tsx` (server shell), `ChartTooltip.tsx`, and three `"use client"` recharts components: `JobsFoundChart.tsx`, `CompanyResearchChart.tsx`, `MatchDistributionChart.tsx`.
+- `lib/dashboard.ts` — all dashboard logic, pure and `now`-injectable: `buildDashboardStats()`, `buildRecentActivity()`, `buildJobsFoundOverTime()`, `buildCompanyResearchActivity()`, `buildMatchScoreDistribution()`, `isChartEmpty()`, `activityWindowStartISO()`, `activityDotClasses()`, plus every row/entry type.
+- `lib/chartTheme.ts` — shared recharts styling: `CHART_TICK`, `CHART_GRID_COLOR`, `CHART_GRID_DASH`, `CHART_MARGIN`, `CHART_TONE_COLOR`, `CHART_BAR_CURSOR`, `CHART_LINE_CURSOR`, `niceAxis()`.
+- `lib/profile.ts` — extracted `profileRowToValues()`, `EMPTY_PROFILE_VALUES`, `ProfileRow`; `app/profile/page.tsx` now shares them with the dashboard so the two can't disagree about profile completeness.
+- `migrations/20260829130958_add-company-researched-at.sql` — **applied to the live backend.** Adds `jobs.company_researched_at timestamptz` + a partial index, and backfills from the newest `agent_logs` row per job (all 4 existing researched jobs recovered real timestamps).
+- `app/api/agent/research/route.ts` — now stamps `company_researched_at` on every dossier save.
+- `package.json` — added `recharts@3.10.1`.
+- `app/globals.css` + `tailwind.config.js` — new `--color-chart-axis` token (#9CA3AF), which `ui-tokens.md` had specified as a bare hex with no variable.
+- `context/` — `progress-tracker.md`, `ui-registry.md`, `architecture.md`, `library-docs.md`, `ui-tokens.md`, `code-standards.md` all updated.
 
 ## Decisions made
 
-- **GPT-5.4 nano now covers both resume extraction and resume generation.** Everything else (matching, company research) still uses GPT-4o. GPT-5.4 nano rejects `max_tokens` — always use `max_completion_tokens`. Documented in `library-docs.md`/`architecture.md`/`build-plan.md` so it doesn't get "corrected" back.
-- **Generated resume lives at a separate storage path** — `resumes/{user_id}/generated-resume.pdf`, not overwriting the user's uploaded `resumes/{user_id}/resume.pdf`. Deviates from the original build-plan text on purpose: Feature 07 extraction must keep reading the user's original upload. Hence the separate `generated_resume_pdf_*` columns.
-- **Backup dump deliberately not replayed during migration** — the InsForge `.sql.gz` is a full-instance `pg_dump` starting with `DROP SCHEMA IF EXISTS` across `auth`/`storage`/`system`/`payments`/`realtime`; replaying it into a fresh project would clobber that project's managed internals and its JWT secrets. Schema was rebuilt by replaying the repo's own 4 migrations instead.
-- Extraction never overwrites a field the user filled; blanks auto-fill, conflicts render dismissable suggestion bubbles on the 13 scalar fields only.
-- All agent-adjacent AI logic stays behind API routes, never Server Actions.
+- **The charts read InsForge, not PostHog** — developer's call, so the feature title "17 Analytics Charts — PostHog Data" is now wrong. All three plot columns that already exist in `jobs` (`found_at`, `match_score`, `company_researched_at`). Consequence: charts provably agree with the stat cards, no read credential needed, no ad-blocker/outage risk. This deleted the Query API layer, Suspense boundaries and chart error states from the approved plan. **PostHog capture is untouched** — all four events still fire and back the PostHog dashboards.
+- `POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_ID` (492786) are in `.env.local` but **unused**, commented as such. Key value is `[REDACTED_API_KEY]` — it is only in `.env.local`, which is gitignored.
+- **Where the design and the build plan disagree, the design wins** (set in Feature 14, held since): stat card 4 is "Jobs This Week" not "Cover Letters Generated"; the blue chart is "Company Research Activity" not "Resume Tailoring Activity"; both time-series charts show a rolling 7 days Mon–Sun, not the plan's 30.
+- **Where the design would misrepresent real data, the data wins.** The distribution's lowest bucket is `<60%`, not the design's `50-60%` — all nine live jobs score under 60, so the design's banding would have hidden eight of them.
+- **Trend badges are computed, not decorative.** Total Jobs Found trends on percentage *change*; Avg. Match Rate on percentage *points*. Both disappear when the prior week is empty (caption switches to "All time" / "Across all jobs"). `StatsBar` has three badge variants — green up, red down, neutral flat — because a falling stat in the design's green badge reads as good news.
+- **Activity tones:** completed agent run → `success` green, researched company → `info` blue (per the build plan). The mock cycles three colours including purple, but its colours key to nothing; `accent` is unused by that card.
+- **A dossier needed its own timestamp.** `found_at` is when a job was *discovered*; on live data that is ~15 hours before it was researched, so ordering the activity feed by `found_at` produced a visibly wrong result. Hence the migration. Rejected alternative: deriving it from `agent_logs` (a job with no `run_id` is never logged, so coverage is incomplete).
+- **Server shell / client island split for charts.** `ChartCard` stays a server component; only the recharts child is `"use client"` — same pattern `CompanyResearch` uses for `ResearchButton`.
+- **Tooltips on all three charts** (added last, at the developer's request; not in the design). Custom `content` always — recharts' default renders the raw dataKey ("count : 30") in its own inline styles.
 
 ## Problems solved
 
-- **Old InsForge project was auto-paused past the free plan's 30-day restore window** — restore required Pro, declined. Recovered onto a fresh free project by replaying migrations. Two things migrations do *not* recreate and that had to be done by hand: the private `resumes` storage bucket (originally made in the dashboard) and `auth.allowed_redirect_urls` (restored via `config apply` from the committed `insforge.toml`).
-- **`insforge db query` rejects SQL that begins with a `--` comment line** (parsed as a CLI flag) — strip comments first.
-- **Repeated 401s on logged-out homepage visits** — the InsForge SSR browser client auto-calls `/api/auth/refresh` on init when no token exists. Removing the unused client fixed it.
-- **Images blanking and reloading on every navigation** — `minimumCacheTTL` in `next.config.ts`.
-- Earlier, still-relevant fixes: `serverExternalPackages: ["pdf-parse"]` for Turbopack bundling of `pdfjs-dist` workers; `max_completion_tokens` for GPT-5.4 nano; `experimental.serverActions.bodySizeLimit: "5mb"`; deduping extracted arrays via `Set`.
+- **InsForge PostgREST rejects aggregate functions** — `select("match_score.avg()")` returns `400 PGRST123`. No `avg()`, `sum()` or `group by` to push down. Counts come from `count: "exact"` (unaffected by `.limit()`); averages and buckets are computed in app code over a sample capped at `JOB_STATS_ROW_LIMIT` (5000).
+- **Postgres sorts NULL *first* on DESC.** `.order(col, { ascending: false }).limit(n)` on a nullable column returns the rows with *no* value. Fix is `nullsFirst: false`, which the SDK does forward — verified. This would have made the Recent Activity feed show only legacy rows.
+- **`type="natural"` draws negative values.** On a week with one spike (9 jobs Friday, 0 otherwise — the live table exactly) the spline undershoots below the axis. All count charts must use `monotone`.
+- **Hardcoded chart axes clip real data.** `[0,12]`/`[0,100]` were mock-fitted; `niceAxis()` now reproduces the mock's exact scales while scaling to the data (verified no clipping 0→1000).
+- **`Date.now()` in a server component trips `react-hooks/purity`.** The clock read lives in `lib/dashboard.ts` (`activityWindowStartISO()`) instead.
+- **Verification without being able to log in.** Every feature since 06 has this limitation. The working method: a throwaway route under `app/(preview)/`, screenshotted via headless Chromium over raw CDP (the `ms-playwright` chromium cache is present but `playwright-core` is not installed). For tooltips, `Input.dispatchMouseEvent` drives a real hover. Preview routes were deleted after each use.
 
 ## Current state
 
-- Phases 1–2 complete (Features 01–08 all checked off). Phase 3 not started.
-- `main` is clean and pushed through `2e5aba7`. `npx tsc --noEmit` passes.
-- **Data loss from the migration:** the 4 previously uploaded resume PDFs are gone permanently — `storage.objects` stores only metadata, never bytes. The single `public.profiles` row was restored successfully after first sign-in (26 skills, 2 work-experience entries, 2 preferred locations intact), with the four storage-pointer columns nulled so the UI doesn't render dead links. A resume needs re-uploading before Extract or Generate can be exercised.
-- **Never verified live in a browser:** Features 06/07/08 all share the same limitation — no headless login (OAuth-only UI, email signup needs a verification inbox). Build/typecheck/lint pass; the suggestion-bubble accept/dismiss flow and the generate → view-PDF → confirm-original-untouched flow have not been clicked through by a human.
-- A `next.config.ts` change needs a manual dev-server restart to take effect. The agent must never restart or kill the dev server.
+- **Works:** the whole dashboard — four stat cards, Recent Activity, all three charts, incomplete-profile banner, chart empty states, chart tooltips. `tsc --noEmit` and `eslint app components lib` clean.
+- **Live data is thin and makes the page look sparse but correct:** 9 jobs all found on one day, all scoring under 60; 4 researched companies; 1 completed agent run. So there are no trend badges (no prior week to compare), the distribution is a single `<60%` bar, and Jobs Found Over Time is one spike.
+- **Never verified in a real browser session.** Everything above was checked through preview routes, not by logging in. No feature since 06 has had a genuine authenticated pass.
+- **Feature 13 remains degraded** — see Open questions. That is the one known functional gap in the app.
+- Nothing is committed. `git status` shows the whole of Phase 3–5 plus this session's work as modified/untracked.
 
 ## Next session starts with
 
-Feature 09 — **Find Jobs Page — Full UI**, per `context/build-plan.md`. Phase 3. Run `/architect` first per project rules.
+**A real browser pass over the authenticated app.** Log in properly and walk `/dashboard`, `/find-jobs`, `/find-jobs/[id]`, `/profile`. This is the single largest untested surface — twelve features have been shipped on indirect verification. Specifically confirm: the dashboard renders end to end for a logged-in user, the incomplete-profile banner appears and links correctly, and the research route's new `company_researched_at` write works after a live run.
 
-Optionally before that: re-upload a resume against the new backend and manually click through Extract (suggestion bubbles) and Generate, since neither has ever been human-verified and the migration wiped the test files.
+After that, the obvious candidates are committing this work (it is a very large uncommitted diff) and Feature 13's open blocker.
 
 ## Open questions
 
-- None blocking.
+- **Feature 13's company domain resolution (unchanged, still open).** Adzuna blocks both server-side `fetch` and Browserbase's datacenter IPs, so the tracking `redirect_url` never resolves to the employer's real site and every run falls back to guessing `https://www.{companySlug}.com`. No dossier has yet been built from a real company website. Unexplored, in rough order of promise: Browserbase residential proxies (`proxies: true` — one attempt failed to create a session); resolving the domain via a search engine in the browser; asking the AI for the likely domain and verifying it loads. The UI reports this honestly via the amber "partial" banner.
+- **Gemini free tier allows ~20 requests/day on `3.6-flash`**, and one research run spends several — roughly one or two runs per day before quota errors.
+- **Should the unused PostHog read credentials stay in `.env.local`?** Nothing reads them. Kept so the Query API can be revisited without re-provisioning; strip them if that is not planned.
+- **The `<60%` bucket may want revisiting once scores improve.** It exists because every current job scores under 60 — which may itself say something about the matcher or the profile rather than about the chart.
+- `JOB_STATS_ROW_LIMIT` (5000) is unexercised; no user is near it.

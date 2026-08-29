@@ -153,6 +153,46 @@ const url = data.publicUrl;
 - Always save the public URL back to the DB after upload
 - Never write files to disk — always upload buffer directly to storage
 
+### Counting and aggregating
+
+`{ count: "exact" }` works and is the cheap way to get a total — the count is
+the number of matching rows, **unaffected by `.limit()` / `.range()`**, so one
+query can carry both a page of rows and the true total. Add `head: true` when
+only the number is wanted; the response then transfers no rows at all:
+
+```typescript
+const { count } = await insforge.database
+  .from("jobs")
+  .select("id", { count: "exact", head: true })
+  .eq("user_id", user.id)
+  .not("company_research", "is", null);
+```
+
+### Ordering on a nullable column
+
+Postgres sorts `NULL` **first** on a `DESC` order, so a `.order(col, { ascending: false }).limit(n)`
+on a nullable column returns the rows that have no value at all — verified live,
+2026-08-29. Pass `nullsFirst: false`; the SDK forwards it to PostgREST's
+`.nullslast` and it genuinely changes the result:
+
+```typescript
+.order("company_researched_at", { ascending: false, nullsFirst: false })
+```
+
+This bit the Recent Activity feed (Feature 16), where legacy rows with no
+`company_researched_at` would otherwise have taken every slot in the top five.
+
+**Aggregate functions are disabled on this project.** `select("match_score.avg()")`
+returns `400 PGRST123: Use of aggregate functions is not allowed` — verified
+live against the real backend, 2026-08-29. There is no `avg()`, `sum()` or
+`group by` to push down, so a statistic like "average match score" must either
+be computed in app code from a bounded column read, or moved into a Postgres
+function called through `insforge.database.rpc()`. The dashboard stats take the
+first route (`buildDashboardStats()` in `lib/dashboard.ts`): counts come from
+`count: "exact"`, and averages are computed over a `select("match_score, found_at")`
+capped at `JOB_STATS_ROW_LIMIT`. Revisit this if a user's job table ever gets
+large enough for that read to matter — the counts stay exact regardless.
+
 ---
 
 ## Adzuna API
@@ -286,81 +326,114 @@ Browserbase sessions run on Browserbase's cloud infrastructure, not inside your 
 
 ## Stagehand
 
-**Check first:** Check AGENTS.md for an installed Stagehand skill. If a Stagehand MCP server is configured — use it. The skill/MCP will have the latest act() and extract() patterns.
+**Version note:** this project is on **Stagehand v4** (`@browserbasehq/stagehand` 4.x). v4 rewrote the API — it drives the browser over CDP directly, so `act`/`extract`/`observe` live on the **Stagehand instance**, not on `page`. Any snippet using `new Stagehand({...})`, `stagehand.init()`, `stagehand.page`, `modelName`, or `modelClientOptions` is pre-v4 and wrong. When in doubt read `node_modules/@browserbasehq/stagehand/dist/index.d.mts` — it is the only source of truth.
 
 ### Initialisation
 
-```typescript
-import { Stagehand } from "@browserbasehq/stagehand";
+Always go through `lib/stagehand.ts` — never construct a session inline:
 
-const stagehand = new Stagehand({
-  env: "BROWSERBASE",
+```typescript
+import { browserbase, Stagehand } from "@browserbasehq/stagehand";
+
+const browser = await browserbase.launch({
   apiKey: process.env.BROWSERBASE_API_KEY!,
   projectId: process.env.BROWSERBASE_PROJECT_ID!,
-  browserbaseSessionID: session.id,
-  model: { modelName: "openai/gpt-4o", apiKey: process.env.OPENAI_API_KEY! },
-  disablePino: true,
+  api_timeout: 120, // seconds — NOT `timeout`, see below
 });
 
-await stagehand.init();
-const page = stagehand.context.activePage()!;
+const stagehand = await Stagehand.create({
+  browser,
+  model: { generate: groqGenerate }, // bring-your-own-LLM — see below
+  logging: { level: "off" },
+});
+
+const page = await stagehand.browser.context.activePage();
+await page.goto(url);
 ```
+
+### Gemini drives the browser, Groq does everything else
+
+**The browser layer runs on Gemini (`google/gemini-3.6-flash`), not Groq.** Stagehand sends a whole page tree per extraction — ~9k tokens for one homepage — and this Groq account's free tier caps at **8k tokens per minute across every call**, so page extraction failed with `413 Request too large` on the first real site. Gemini is one of Stagehand's five built-in providers, so it needs no callback: `model: { modelName, apiKey }`.
+
+Model id matters: **`gemini-2.5-flash` is refused for newly created keys** ("no longer available to new users"); the API itself names `gemini-3.6-flash` as the replacement.
+
+Everything we control the payload size of — matching, extraction, resume generation, research synthesis — stays on Groq via `lib/ai.ts`.
+
+`GOOGLE_API_KEY` gates browser research. When it is absent, `canBrowse()` is false and research skips straight to synthesis with a clear log line, rather than opening a session that cannot read anything.
+
+**Free-tier reality:** `gemini-3.6-flash` allows **20 requests/day** on the free tier, and one research run (homepage + 3 sub-pages) spends several — so roughly one or two runs per day before quota errors. Stagehand retries three times internally, then throws; `browseCompany()` catches per page, so a quota error degrades that page rather than the run.
+
+### The bring-your-own-LLM callback (kept, currently unused by the browser)
+
+Stagehand v4 has **no `baseURL` option**. Any provider outside the five built-ins goes through the callback — `groqGenerate` in `lib/ai.ts`, passed as `model: { generate }`. The callback owns the transport: it converts Stagehand's content blocks to chat messages, calls Groq, and returns
+
+```typescript
+{ role: "assistant", content: { type: "text", text }, outputFormat: "json_schema", structuredContent: JSON.parse(text) }
+```
+
+Its schemas are generated by Stagehand from our Zod shapes, so they are sent with **`strict: false`** — they need not satisfy Groq's strict-mode rules, and a rejected schema is a 400 for the whole page. Our own prompts keep `jsonSchemaFormat()`/`aiObject()` strict mode.
+
+### Reading links off a page
+
+**Never ask the model for a URL in an extract schema.** Stagehand answers with its own internal element ids (`"0-1819"`), which are keys into a snapshot map, not links — navigating to one sends the browser to a nonexistent path. Real hrefs come from the snapshot:
+
+```typescript
+const snapshot = await page.snapshot(); // { formattedTree, xpathMap, urlMap }
+const urls = Object.values(snapshot.urlMap);
+```
+
+`Locator.innerHtml()` is not an alternative — on a freshly loaded page it throws `Stagehand extension world not ready`.
+
+Classifying those URLs by keyword (`/about`, `/careers`, `/blog`…) is cheaper and steadier than a model call — see `agent/company-url.ts`.
 
 ### extract()
 
 ```typescript
 import { z } from "zod";
 
-const result = await stagehand.extract({
-  instruction:
-    "Extract the company overview, main product description, and any technology mentions from this page.",
-  schema: z.object({
-    companyOverview: z.string().optional(),
-    mainProduct: z.string().optional(),
-    techMentions: z.array(z.string()).optional(),
-    navLinks: z
-      .array(
-        z.object({
-          label: z.string(),
-          url: z.string(),
-        }),
-      )
-      .optional(),
+const result = await stagehand.extract(
+  "Extract the company overview, main product, and any technology mentions.",
+  z.object({
+    companyOverview: z.string(),
+    mainProduct: z.string(),
+    techMentions: z.array(z.string()),
   }),
-});
+);
+
+result.data; // typed from the schema — the payload is under `.data`, not the result itself
 ```
 
 ### act()
 
 ```typescript
-// Always wrap in try/catch
+// Always wrap in try/catch — act() lives on the instance, not on page
 try {
-  await stagehand.act({
-    action: "Click the About link in the navigation",
-  });
+  await stagehand.act("Click the About link in the navigation");
 } catch (error) {
   await logAgentError(jobId, null, error);
 }
 ```
 
-## Company Research Section
+Navigation is not an `act()` — use `page.goto(url)`.
 
-Replace the existing Stagehand "Company Research Pattern" section in library-docs.md with this:
+**Gotchas that cost real time:**
 
----
+- **zod must be pinned to exactly the version Stagehand pins** (`4.4.3` today). Two copies of zod in the tree makes every schema a type error, because `z.ZodType` from one copy is not assignable to the other.
+- **`@browserbasehq/stagehand` must be in `serverExternalPackages`** in `next.config.ts` — it resolves bundled browser-extension assets through a package-relative `import.meta.url` that Turbopack cannot follow, and the build fails with `Module not found: Can't resolve '../'`.
+- **The session lifetime is `api_timeout`, not `timeout`**, in the current Browserbase SDK. The old name is accepted silently and ignored, leaving the session on the project default.
+- The package is ESM-only (`exports` declares `import` alone), so CJS-based tooling cannot require it.
 
 ### Company Research Pattern
 
-Three-step process: homepage extraction → sub-page extraction → GPT-4o synthesis.
+Three-step process: homepage extraction → sub-page extraction → synthesis with `AI_MODEL`.
 Job description and user profile come from DB — never re-fetch what you already have.
 Browser's only job is the company website.
 
 ```typescript
-// Step 1 — Homepage extraction
-const homepageData = await stagehand.extract({
-  instruction:
-    "This is a company's homepage. Capture what the company actually does, who it's for, and any concrete signals (funding, customers, scale, mission, recent launches). Then find the internal links most worth visiting to research them as an employer.",
-  schema: z.object({
+// Step 1 — Homepage extraction (v4 signature: instruction, schema)
+const homepageData = await stagehand.extract(
+  "This is a company's homepage. Capture what the company actually does, who it's for, and any concrete signals (funding, customers, scale, mission, recent launches). Then find the internal links most worth visiting to research them as an employer.",
+  z.object({
     oneLiner: z.string().describe("What the company does in one sentence"),
     productSummary: z
       .string()
@@ -385,20 +458,20 @@ const homepageData = await stagehand.extract({
       )
       .describe("Internal links worth visiting"),
   }),
-});
+);
 
 // If oneLiner and productSummary are empty — wrong site or parked domain
 // Skip to synthesis with job description and profile only
-if (!homepageData.oneLiner && !homepageData.productSummary) {
+// The payload is under `.data` in v4
+if (!homepageData.data.oneLiner && !homepageData.data.productSummary) {
   await stagehand.close();
   // proceed to synthesis with empty companyResearch
 }
 
 // Step 2 — Sub-page extraction (max 3, prefer about/blog/engineering/product over careers)
-const subPageData = await stagehand.extract({
-  instruction:
-    "Extract substance that helps a candidate understand this company before applying: what they do, their values and how they work, the specific technologies and tools they use, notable projects or customers, and how the team operates. Ignore nav, footers, cookie banners, and generic marketing copy.",
-  schema: z.object({
+const subPageData = await stagehand.extract(
+  "Extract substance that helps a candidate understand this company before applying: what they do, their values and how they work, the specific technologies and tools they use, notable projects or customers, and how the team operates. Ignore nav, footers, cookie banners, and generic marketing copy.",
+  z.object({
     keyPoints: z.array(z.string()),
     technologies: z
       .array(z.string())
@@ -410,9 +483,9 @@ const subPageData = await stagehand.extract({
       .array(z.string())
       .describe("Customers, funding, scale, projects, awards"),
   }),
-});
+);
 
-// Step 3 — GPT-4o synthesis (after browser closes)
+// Step 3 — synthesis with AI_MODEL via lib/ai.ts (after browser closes)
 // Feed three data sources: company research + job from DB + profile from DB
 const systemPrompt = `You are a sharp career strategist preparing a candidate to apply for a specific role. You are given (a) research collected from the company's own website, (b) the job posting, and (c) the candidate's profile. Produce a concise, concrete briefing that gives this specific candidate an edge for this specific role.
 
@@ -453,9 +526,10 @@ Skills: ${profile.skills.join(", ")}
 Work history: ${JSON.stringify(profile.work_experience)}`;
 
 const response = await openai.chat.completions.create({
-  model: "gpt-4o",
-  response_format: { type: "json_object" },
+  model: AI_MODEL,
+  response_format: jsonSchemaFormat("company_dossier", DOSSIER_SCHEMA),
   temperature: 0.4,
+  max_completion_tokens: AI_MAX_COMPLETION_TOKENS_RESEARCH,
   messages: [
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
@@ -482,7 +556,7 @@ const response = await openai.chat.completions.create({
 - Always use `extract()` with a Zod schema — never parse raw HTML or use regex
 - Always wrap every `act()` and `extract()` in try/catch
 - Always call `await stagehand.close()` when done — ends the Browserbase session
-- Model is always `gpt-4o` — never use other models
+- Model is always `AI_MODEL` from `lib/ai.ts` — never `gpt-4o`, which this account cannot reach
 - Temperature is `0.4` for synthesis — grounded but flexible enough to make real connections
 - Max 3 sub-pages — never exceed this on free plan
 - Always close session in finally block — never leave sessions open even if research fails
@@ -490,54 +564,56 @@ const response = await openai.chat.completions.create({
 - If browser research returns empty — still run synthesis with job + profile only
 - yourEdge, gapsToAddress, and smartQuestions are the most valuable fields — never skip them
 
-## OpenAI GPT-4o / GPT-5.4 nano
+## Groq (OpenAI-compatible)
 
-**Check first:** Check AGENTS.md for an installed OpenAI skill. The skill will have the latest API patterns and model capabilities.
+All AI calls go to **Groq**, not OpenAI. The OpenAI account ran out of credits (every call returned `429 You have no credits remaining`), so the app was moved to Groq's OpenAI-compatible endpoint. The `openai` SDK is still the client — only the base URL, key and model change, so no second library.
 
-### Structured JSON Response
+**Never construct the client inline.** Use `lib/ai.ts`:
 
 ```typescript
-import OpenAI from "openai";
+import { AI_MODEL, aiObject, AI_STRING, AI_STRING_ARRAY, createAIClient, jsonSchemaFormat } from "@/lib/ai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const SCHEMA = aiObject({
+  matchScore: { type: "integer", minimum: 0, maximum: 100 },
+  matchReason: AI_STRING,
+  matchedSkills: AI_STRING_ARRAY,
+});
 
+const openai = createAIClient();
 const response = await openai.chat.completions.create({
-  model: "gpt-4o",
-  response_format: { type: "json_object" },
+  model: AI_MODEL,
+  response_format: jsonSchemaFormat("job_match", SCHEMA),
   temperature: 0.3,
+  max_completion_tokens: AI_MAX_COMPLETION_TOKENS,
   messages: [
-    {
-      role: "system",
-      content: "You are a job matching assistant. Return only valid JSON.",
-    },
-    {
-      role: "user",
-      content: `Your prompt here`,
-    },
+    { role: "system", content: "You score how well a candidate matches a job posting." },
+    { role: "user", content: `Your prompt here` },
   ],
 });
 
 const result = JSON.parse(response.choices[0].message.content!);
 ```
 
+**Model:** always `AI_MODEL` from `lib/ai.ts` (`openai/gpt-oss-20b`) — the cheapest text model this Groq account can reach that supports structured output. Never hardcode a model string, and never reintroduce `gpt-4o` or `gpt-5.4-nano`.
+
 **Temperature settings:**
 
 - `0.3` — matching, scoring, extraction, research synthesis — deterministic results
 - `0.7` — resume generation — natural variation
 
-**Max tokens:**
+**Max completion tokens** — `gpt-oss-20b` is a reasoning model, and its hidden reasoning tokens are billed against this budget alongside the visible JSON, so every figure is several times what the same prompt needed on GPT-4o:
 
-- Job matching + scoring: `300`
-- Company research synthesis: `800`
-- Resume generation: `1000` — **passed as `max_completion_tokens`, not `max_tokens`** (see rule below)
-- Profile extraction from resume: `800` — **passed as `max_completion_tokens`, not `max_tokens`** (see rule below)
+- Job matching + scoring: `800` (`AI_MAX_COMPLETION_TOKENS`) — a 300 budget left only ~30 tokens of headroom
+- Profile extraction from resume: `2000`
+- Resume generation: `2500`
 
 **Rules:**
 
-- Model string is always `'gpt-4o'` — never use other model names, **except resume profile extraction (Feature 07) and resume generation (Feature 08), which always use `'gpt-5.4-nano'`**
-- **`gpt-5.4-nano` rejects the legacy `max_tokens` parameter** (`400 Unsupported parameter`) — use `max_completion_tokens` instead. This only applies to `gpt-5.4-nano` calls (extraction and generation); `gpt-4o` calls elsewhere (matching, research synthesis) keep using `max_tokens` as shown above.
-- Always use `response_format: { type: 'json_object' }` for structured data
-- Always parse `response.choices[0].message.content` as string — even with json_object it returns a string
+- Always pass `max_completion_tokens`, never the legacy `max_tokens`
+- **Always use `jsonSchemaFormat()`, not `response_format: { type: 'json_object' }`.** `json_object` only *asks* for JSON; the model can still emit malformed output, which Groq rejects with `400 json_validate_failed` — observed intermittently on the resume-generation prompt. A `json_schema` constrains decoding, so the shape is guaranteed. Strict mode requires every property to appear in `required` and `additionalProperties: false`, which is what `aiObject()` does for you.
+- **Include `""` in every enum** in a schema, so the model can answer "not determinable" rather than being forced to guess a real value.
+- **Never trust a numeric score's scale.** Models answer `0.75` on a 0-100 scale often enough that `clampScore()` in `agent/matcher.ts` normalises a fractional 0-1 value back to 0-100. State the scale in the prompt *and* normalise on the way in.
+- Always parse `response.choices[0].message.content` as string — even with a schema it returns a string
 - Always validate parsed JSON before using — wrap in try/catch
 - Match threshold is always `MATCH_THRESHOLD` from `lib/utils.ts` — never hardcode 70
 - Company research synthesis must always return a complete dossier — never return empty even if browser research failed
@@ -593,6 +669,25 @@ posthog.capture({
 });
 await posthog.shutdown(); // required — ensures event is sent
 ```
+
+### PostHog is write-only in this project
+
+**Nothing reads events back from PostHog.** The dashboard charts (Feature 17)
+were specified as "PostHog Data", but all three plot columns that already exist
+in the `jobs` table — `found_at`, `match_score`, and `company_researched_at` —
+so they are built from InsForge instead. That decision buys three things:
+the charts provably agree with the stat cards above them (which read InsForge),
+there is no read credential to hold, and no PostHog outage or ad-blocker can
+empty a chart.
+
+Reading back would require the **Query API** — `POST /api/projects/{id}/query/`
+with a personal `phx_` key, which is a different credential from the public
+`phc_` ingest key and cannot be `NEXT_PUBLIC_`. `posthog-node` has no query
+method at all. `POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_ID` (492786) are
+present in `.env.local` but **unused** — they exist only so this can be
+revisited without re-provisioning.
+
+Capture is unaffected: all four events in `code-standards.md` still fire.
 
 **Rules:**
 
@@ -686,3 +781,98 @@ const extractedText = result.text; // raw text content
 - Always call `parser.destroy()` after use
 - Always handle parse errors — some PDFs are image-based and return empty text
 - If `result.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
+
+---
+
+## recharts
+
+Installed: `recharts@3.10.1`. Used only by the three dashboard charts.
+
+### Project rules
+
+- **Every chart is a `"use client"` component.** `ResponsiveContainer` measures
+  the DOM, so it renders nothing on the server. Wrap it in `ChartCard`
+  (`components/dashboard/ChartCard.tsx`), which stays a server component — the
+  same shell/island split `CompanyResearch` uses for `ResearchButton`.
+- **Colours are `var(--color-*)` strings, never hex.** recharts sets SVG
+  presentation attributes (`fill`, `stroke`, tick `fill`) rather than classes,
+  and SVG attributes accept `var()`. This is how the "no hardcoded hex" rule
+  is satisfied inside a chart.
+- **All shared styling lives in `lib/chartTheme.ts`** — `CHART_TICK`,
+  `CHART_GRID_COLOR`, `CHART_GRID_DASH`, `CHART_MARGIN`. Never re-declare tick
+  or grid styling inside a chart component.
+- The chart's height comes from its container (`ResponsiveContainer` is
+  `width="100%" height="100%"`), so the parent must have a resolved height —
+  `ChartCard` gives it `min-h-[280px] flex-1`.
+
+### Canonical axis/grid setup (matches `dashboard.png`)
+
+```tsx
+<CartesianGrid vertical={false} strokeDasharray={CHART_GRID_DASH} stroke={CHART_GRID_COLOR} />
+<XAxis dataKey="label" tickLine={false} axisLine={false} tick={CHART_TICK} tickMargin={12} />
+<YAxis tickLine={false} axisLine={false} tick={CHART_TICK} width={40}
+       domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} />
+```
+
+`domain` and `ticks` are always explicit — recharts' auto-ticks do not produce
+the mock's 0/25/50/75/100 (or 0/3/6/9/12) scales.
+
+### Bars and areas
+
+```tsx
+<Bar dataKey="value" fill="var(--color-info)" radius={[4, 4, 0, 0]} maxBarSize={56} />
+```
+
+```tsx
+<defs>
+  <linearGradient id={GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.2} />
+    <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
+  </linearGradient>
+</defs>
+<Area type="monotone" dataKey="value" stroke="var(--color-accent)" strokeWidth={3}
+      fill={`url(#${GRADIENT_ID})`} dot={false} activeDot={false} />
+```
+
+- **`type="monotone"`, never `"natural"`.** `natural` was used while the chart
+  was on mock data, because the mock's curve overshoots between points. Real
+  data killed it: a week with one spike (9 jobs on Friday, 0 every other day —
+  the live table exactly) makes the natural spline **undershoot below zero**,
+  drawing negative job counts. `monotone` cannot overshoot, and on
+  well-spread data the two are visually identical. Any chart plotting counts
+  must use `monotone`.
+- **Axes are computed, never hardcoded.** `niceAxis(max)` in `lib/chartTheme.ts`
+  returns four intervals up to a round step, reproducing the design's
+  `0/3/6/9/12` and `0/25/50/75/100` exactly while scaling to whatever the data
+  actually holds. Hardcoded domains were mock-fitted and clip real data.
+- `maxBarSize={56}` plus `barCategoryGap` is what controls bar width. Without
+  `maxBarSize`, a narrow card with five categories renders hairline bars.
+- **No `<Legend>`** anywhere — one series per chart, so the card title already
+  names it.
+- **`<Tooltip>` on every chart, always with custom `content`.** The design has
+  none, but hover is how a reader gets an exact figure off a smoothed curve;
+  this was added at the developer's request. **Never ship recharts' default
+  content** — it renders the raw dataKey in its own inline styles ("count : 30"),
+  which ignores every design token. Pass `ChartTooltip`
+  (`components/dashboard/ChartTooltip.tsx`) through a render function so the
+  props stay typed:
+
+```tsx
+<Tooltip
+  cursor={CHART_BAR_CURSOR}          // or CHART_LINE_CURSOR on the area chart
+  content={(props) => (
+    <ChartTooltip
+      active={props.active} label={props.label} payload={props.payload}
+      unit={{ one: "job", many: "jobs" }} tone="success"
+    />
+  )}
+/>
+```
+
+  `unit` takes both grammatical forms — a single `"jobs"` renders "1 jobs" on
+  any day with one event. `tone` indexes `CHART_TONE_COLOR` in
+  `lib/chartTheme.ts`, the same map the series fill reads, so the tooltip
+  figure can never be a different colour from the bar it describes.
+- The area chart also needs `activeDot` (accent fill, `--color-surface` ring) —
+  with `dot={false}` there is otherwise nothing marking which point is being
+  read.

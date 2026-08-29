@@ -99,6 +99,9 @@ className="bg-purple-500 text-gray-600"
   --color-linkedin-light: #dce6f1;
   --color-linkedin-foreground: #ffffff;
 
+  /* Charts */
+  --color-chart-axis: #9ca3af;
+
   /* Dark overlays */
   --color-overlay: #111827;
   --color-overlay-dark: #131316;
@@ -155,14 +158,13 @@ Used for: primary buttons, active nav items, match score bars, tailored badge, f
 
 ### Match Score Colors
 
-Match score bars and indicators use gradient stops based on score range:
+Match score bars and indicators use three bands based on score range. These match `ui-rules.md` and the shipped `matchScoreBarClass()` in `lib/jobs.ts` exactly — the single source of truth for the bands.
 
-| Score Range | Color  | Token                                  |
-| ----------- | ------ | -------------------------------------- |
-| 90-100%     | Green  | `text-success` / `bg-success-lightest` |
-| 70-89%      | Green  | `text-success` / `bg-success-light`    |
-| 50-69%      | Orange | `text-warning`                         |
-| Below 50%   | Gray   | `text-text-muted`                      |
+| Score Range | Color  | Bar fill      | Text          |
+| ----------- | ------ | ------------- | ------------- |
+| 80-100%     | Green  | `bg-success`  | `text-success` |
+| 60-79%      | Blue   | `bg-info`     | `text-info`    |
+| Below 60%   | Orange | `bg-warning`  | `text-warning` |
 
 ### Skills Badges
 
@@ -294,7 +296,7 @@ font-weight: font-medium
 ```
 background track: bg-border-light
 fill: varies by score range (see Match Score Colors above)
-height: 4px
+height: 6px (h-1.5) — the delivered mock, not the 4px this file previously specified
 border-radius: rounded-full
 ```
 
@@ -321,13 +323,19 @@ Dot size: 8px inner, 16px outer with white border
 
 ### Dashboard Chart Colors
 
-| Chart                            | Color                                                           |
-| -------------------------------- | --------------------------------------------------------------- |
-| Jobs Found Over Time (line)      | `#7C5CFC` stroke, 3px width, gradient fill rgba(124,92,252,0.2) |
-| Resume Tailoring Activity (bars) | `#61A8FF`                                                       |
-| Match Score Distribution (bars)  | `#10B981`                                                       |
-| Chart grid lines                 | `1px dashed #E7EAF3`                                            |
-| Chart axis labels                | `#9CA3AF`, 12px                                                 |
+| Chart                            | Token                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| Jobs Found Over Time (area)      | `--color-accent` stroke, 3px width, gradient fill at 0.2 → 0 opacity     |
+| Company Research Activity (bars) | `--color-info`                                                            |
+| Match Score Distribution (bars)  | `--color-success`                                                         |
+| Chart grid lines                 | `--color-border`, dashed (`strokeDasharray="4 4"`), horizontal only       |
+| Chart axis labels                | `--color-chart-axis` (#9CA3AF), 12px                                      |
+
+Recharts sets SVG presentation attributes rather than classes, so charts pass
+these as `var(--color-*)` strings — see `lib/chartTheme.ts`, which is the only
+place chart styling constants live. The blue bar chart is **Company Research
+Activity** (what `dashboard.png` and Feature 17 both call it), not "Resume
+Tailoring Activity" as this table previously said.
 
 ### Logo
 

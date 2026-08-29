@@ -231,9 +231,12 @@ All PostHog events must use these exact event names. Never invent new event name
 
 These four events are the only events in this project. Do not add more without updating this list first.
 
-`job_found` powers the Jobs Found Over Time and Match Score Distribution dashboard charts.
-`company_researched` powers the Company Research Activity dashboard chart.
-Always fire these with correct properties.
+These events are for product analytics in PostHog only — **the dashboard charts
+do not read them.** All three charts are built from the `jobs` table
+(`found_at`, `match_score`, `company_researched_at`) so they cannot disagree
+with the stat cards; see the PostHog section of `library-docs.md`. Keep firing
+them with correct properties regardless — they are what the PostHog dashboards
+and funnels are built on.
 
 ---
 

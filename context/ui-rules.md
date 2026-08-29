@@ -158,7 +158,7 @@ focus: ring-1 ring-accent border-accent
 Inline progress bar shown next to the percentage number.
 
 ```
-height: 4px
+height: 6px
 border-radius: 9999px
 background track: #E7EAF3
 ```
