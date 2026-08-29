@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
 import { PDFParse } from "pdf-parse";
-import OpenAI from "openai";
+import {
+  AI_MODEL,
+  AI_STRING,
+  AI_STRING_ARRAY,
+  aiObject,
+  createAIClient,
+  jsonSchemaFormat,
+} from "@/lib/ai";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
 const MIN_EXTRACTED_TEXT_LENGTH = 50;
+
+/**
+ * Larger than the shared default: the extracted profile JSON is long, and the
+ * model's reasoning tokens are billed against the same budget.
+ */
+const EXTRACTION_MAX_COMPLETION_TOKENS = 2000;
 
 const PROFILE_JSON_SHAPE = `{
   "fullName": string,
@@ -38,6 +51,53 @@ const PROFILE_JSON_SHAPE = `{
   "salaryExpectation": string,
   "preferredLocations": string
 }`;
+
+/**
+ * The machine-checkable form of PROFILE_JSON_SHAPE above. Every enum includes
+ * "" so the model can say "not determinable" instead of guessing a value, which
+ * a strict schema would otherwise force it to do.
+ */
+const PROFILE_SCHEMA = aiObject({
+  fullName: AI_STRING,
+  phone: AI_STRING,
+  location: AI_STRING,
+  linkedinUrl: AI_STRING,
+  portfolioUrl: AI_STRING,
+  workAuthorization: {
+    type: "string",
+    enum: ["citizen", "permanent_resident", "visa_required", ""],
+  },
+  currentTitle: AI_STRING,
+  experienceLevel: { type: "string", enum: ["junior", "mid", "senior", "lead", ""] },
+  yearsExperience: AI_STRING,
+  skills: AI_STRING_ARRAY,
+  industries: AI_STRING_ARRAY,
+  workExperience: {
+    type: "array",
+    maxItems: 3,
+    items: aiObject({
+      company: AI_STRING,
+      title: AI_STRING,
+      startDate: AI_STRING,
+      endDate: AI_STRING,
+      currentlyWorking: { type: "boolean" },
+      responsibilities: AI_STRING,
+    }),
+  },
+  education: aiObject({
+    degree: {
+      type: "string",
+      enum: ["high_school", "associate", "bachelor", "master", "phd", "other", ""],
+    },
+    fieldOfStudy: AI_STRING,
+    institution: AI_STRING,
+    graduationYear: AI_STRING,
+  }),
+  jobTitlesSeeking: AI_STRING,
+  remotePreference: { type: "string", enum: ["remote", "onsite", "hybrid", "any", ""] },
+  salaryExpectation: AI_STRING,
+  preferredLocations: AI_STRING,
+});
 
 export async function POST() {
   const insforge = await createInsforgeServer();
@@ -92,12 +152,12 @@ export async function POST() {
   }
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+    const openai = createAIClient();
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4-nano",
-      response_format: { type: "json_object" },
+      model: AI_MODEL,
+      response_format: jsonSchemaFormat("applicant_profile", PROFILE_SCHEMA),
       temperature: 0.3,
-      max_completion_tokens: 800,
+      max_completion_tokens: EXTRACTION_MAX_COMPLETION_TOKENS,
       messages: [
         {
           role: "system",
@@ -113,7 +173,7 @@ export async function POST() {
     const parsed = JSON.parse(response.choices[0].message.content!);
     return NextResponse.json({ data: parsed });
   } catch (err) {
-    console.error("[resume/extract] GPT-5.4 nano extraction failed:", err);
+    console.error("[resume/extract] extraction model failed:", err);
     return NextResponse.json({ error: "Failed to extract profile data from this resume." }, { status: 502 });
   }
 }

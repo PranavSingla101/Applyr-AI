@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { createElement, type ReactElement } from "react";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
-import OpenAI from "openai";
 import { revalidatePath } from "next/cache";
+import {
+  AI_MODEL,
+  AI_STRING,
+  AI_STRING_ARRAY,
+  aiObject,
+  createAIClient,
+  jsonSchemaFormat,
+} from "@/lib/ai";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { ResumeDocument } from "@/lib/pdf/ResumeDocument";
 import type { EducationEntry, WorkExperienceEntry } from "@/lib/profile";
@@ -13,6 +20,21 @@ const GENERATION_JSON_SHAPE = `{
     { "bullets": string[] }
   ]
 }`;
+
+/**
+ * Larger than the shared default: this call returns a summary plus 3-5 bullets
+ * for every role, and the model's reasoning tokens are billed against the same
+ * budget.
+ */
+const GENERATION_MAX_COMPLETION_TOKENS = 2500;
+
+const GENERATION_SCHEMA = aiObject({
+  summary: AI_STRING,
+  workExperience: {
+    type: "array",
+    items: aiObject({ bullets: AI_STRING_ARRAY }),
+  },
+});
 
 type GeneratedContent = {
   summary: string;
@@ -70,12 +92,12 @@ export async function POST() {
 
     let generated: GeneratedContent;
     try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+      const openai = createAIClient();
       const response = await openai.chat.completions.create({
-        model: "gpt-5.4-nano",
-        response_format: { type: "json_object" },
+        model: AI_MODEL,
+        response_format: jsonSchemaFormat("resume_content", GENERATION_SCHEMA),
         temperature: 0.7,
-        max_completion_tokens: 1000,
+        max_completion_tokens: GENERATION_MAX_COMPLETION_TOKENS,
         messages: [
           {
             role: "system",
@@ -100,7 +122,7 @@ export async function POST() {
 
       generated = JSON.parse(response.choices[0].message.content!);
     } catch (err) {
-      console.error("[resume/generate] GPT-5.4 nano generation failed:", err);
+      console.error("[resume/generate] generation model failed:", err);
       return NextResponse.json(
         { success: false, error: "Failed to generate resume content." },
         { status: 502 },
