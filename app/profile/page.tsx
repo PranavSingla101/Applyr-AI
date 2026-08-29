@@ -2,27 +2,7 @@ import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { ProfilePageClient } from "@/components/profile/ProfilePageClient";
 import { createInsforgeServer } from "@/lib/insforge-server";
-import { computeCompletion, type ProfileFormValues } from "@/lib/profile";
-
-const EMPTY_VALUES: ProfileFormValues = {
-  fullName: "",
-  phone: "",
-  location: "",
-  linkedinUrl: "",
-  portfolioUrl: "",
-  workAuthorization: "citizen",
-  currentTitle: "",
-  experienceLevel: "junior",
-  yearsExperience: "",
-  skills: [],
-  industries: [],
-  workExperience: [],
-  education: { degree: "high_school", fieldOfStudy: "", institution: "", graduationYear: "" },
-  jobTitlesSeeking: "",
-  remotePreference: "any",
-  salaryExpectation: "",
-  preferredLocations: "",
-};
+import { computeCompletion, profileRowToValues, type ProfileRow } from "@/lib/profile";
 
 export default async function ProfilePage() {
   const insforge = await createInsforgeServer();
@@ -39,32 +19,9 @@ export default async function ProfilePage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const values: ProfileFormValues = profile
-    ? {
-        fullName: profile.full_name ?? "",
-        phone: profile.phone ?? "",
-        location: profile.location ?? "",
-        linkedinUrl: profile.linkedin_url ?? "",
-        portfolioUrl: profile.portfolio_url ?? "",
-        workAuthorization: profile.work_authorization ?? "citizen",
-        currentTitle: profile.current_title ?? "",
-        experienceLevel: profile.experience_level ?? "junior",
-        yearsExperience: profile.years_experience?.toString() ?? "",
-        skills: profile.skills ?? [],
-        industries: profile.industries ?? [],
-        workExperience: profile.work_experience ?? [],
-        education: profile.education ?? {
-          degree: "high_school",
-          fieldOfStudy: "",
-          institution: "",
-          graduationYear: "",
-        },
-        jobTitlesSeeking: (profile.job_titles_seeking ?? []).join(", "),
-        remotePreference: profile.remote_preference ?? "any",
-        salaryExpectation: profile.salary_expectation ?? "",
-        preferredLocations: (profile.preferred_locations ?? []).join(", "),
-      }
-    : EMPTY_VALUES;
+  // The InsForge client returns rows untyped; ProfileRow is the narrow shape
+  // the form actually reads, and every field on it is optional and nullable.
+  const values = profileRowToValues((profile ?? null) as ProfileRow | null);
 
   const { percentage, missingFields } = computeCompletion(values);
   const resumeFileName = profile?.resume_pdf_url ? "resume.pdf" : null;

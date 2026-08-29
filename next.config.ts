@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["pdf-parse"],
+  // Stagehand resolves its bundled browser-extension assets from a
+  // package-relative `import.meta.url`, which the bundler cannot follow — it has
+  // to stay an external require at runtime.
+  serverExternalPackages: ["pdf-parse", "@browserbasehq/stagehand"],
   images: {
     // Without this the optimizer inherits the upstream `max-age=0, must-revalidate`
     // from /public and every navigation re-fetches each image, making the logo and

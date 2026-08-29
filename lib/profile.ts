@@ -34,6 +34,83 @@ export type ProfileFormValues = {
   preferredLocations: string;
 };
 
+/** Shape of one `profiles` row, as far as the profile form cares about it. */
+export type ProfileRow = {
+  full_name?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  linkedin_url?: string | null;
+  portfolio_url?: string | null;
+  work_authorization?: string | null;
+  current_title?: string | null;
+  experience_level?: string | null;
+  years_experience?: number | string | null;
+  skills?: string[] | null;
+  industries?: string[] | null;
+  work_experience?: WorkExperienceEntry[] | null;
+  education?: EducationEntry | null;
+  job_titles_seeking?: string[] | null;
+  remote_preference?: string | null;
+  salary_expectation?: string | null;
+  preferred_locations?: string[] | null;
+};
+
+export const EMPTY_PROFILE_VALUES: ProfileFormValues = {
+  fullName: "",
+  phone: "",
+  location: "",
+  linkedinUrl: "",
+  portfolioUrl: "",
+  workAuthorization: "citizen",
+  currentTitle: "",
+  experienceLevel: "junior",
+  yearsExperience: "",
+  skills: [],
+  industries: [],
+  workExperience: [],
+  education: { degree: "high_school", fieldOfStudy: "", institution: "", graduationYear: "" },
+  jobTitlesSeeking: "",
+  remotePreference: "any",
+  salaryExpectation: "",
+  preferredLocations: "",
+};
+
+/**
+ * Single mapping from a `profiles` row to form values. Shared by the profile
+ * page and the dashboard's completion banner so the two can never disagree
+ * about whether a profile is complete.
+ */
+export function profileRowToValues(row: ProfileRow | null): ProfileFormValues {
+  if (!row) {
+    return EMPTY_PROFILE_VALUES;
+  }
+
+  return {
+    fullName: row.full_name ?? "",
+    phone: row.phone ?? "",
+    location: row.location ?? "",
+    linkedinUrl: row.linkedin_url ?? "",
+    portfolioUrl: row.portfolio_url ?? "",
+    workAuthorization: row.work_authorization ?? "citizen",
+    currentTitle: row.current_title ?? "",
+    experienceLevel: row.experience_level ?? "junior",
+    yearsExperience: row.years_experience?.toString() ?? "",
+    skills: row.skills ?? [],
+    industries: row.industries ?? [],
+    workExperience: row.work_experience ?? [],
+    education: row.education ?? {
+      degree: "high_school",
+      fieldOfStudy: "",
+      institution: "",
+      graduationYear: "",
+    },
+    jobTitlesSeeking: (row.job_titles_seeking ?? []).join(", "),
+    remotePreference: row.remote_preference ?? "any",
+    salaryExpectation: row.salary_expectation ?? "",
+    preferredLocations: (row.preferred_locations ?? []).join(", "),
+  };
+}
+
 function isRoleComplete(role: WorkExperienceEntry) {
   const endDateOk = role.currentlyWorking || role.endDate.trim().length > 0;
   return (

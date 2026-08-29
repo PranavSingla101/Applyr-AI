@@ -3,6 +3,9 @@ module.exports = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    // lib/ builds class strings too (matchScoreBarClass), and a class Tailwind
+    // never scans is a class it never generates.
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -69,6 +72,9 @@ module.exports = {
           DEFAULT: "var(--color-linkedin)",
           light: "var(--color-linkedin-light)",
           foreground: "var(--color-linkedin-foreground)",
+        },
+        chart: {
+          axis: "var(--color-chart-axis)",
         },
         overlay: {
           DEFAULT: "var(--color-overlay)",

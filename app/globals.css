@@ -64,6 +64,9 @@
   --color-linkedin-light: #dce6f1;
   --color-linkedin-foreground: #ffffff;
 
+  /* Charts — axis tick labels sit lighter than any text token (ui-tokens.md) */
+  --color-chart-axis: #9ca3af;
+
   /* Dark overlays */
   --color-overlay: #111827;
   --color-overlay-dark: #131316;

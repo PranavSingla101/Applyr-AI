@@ -4,8 +4,7 @@ import type { EducationEntry, WorkExperienceEntry } from "@/lib/profile";
 const styles = StyleSheet.create({
   page: { padding: 36, fontFamily: "Helvetica", fontSize: 10, color: "#1a1a1a" },
   name: { fontSize: 20, fontWeight: "bold" },
-  contactRow: { flexDirection: "row", marginTop: 4 },
-  contactText: { fontSize: 9, color: "#444444", marginRight: 10 },
+  contactText: { fontSize: 9, color: "#444444", marginTop: 4, lineHeight: 1.4 },
   section: { marginTop: 14 },
   heading: { fontSize: 11, fontWeight: "bold", marginBottom: 6 },
   paragraph: { fontSize: 10, lineHeight: 1.4 },
@@ -59,13 +58,12 @@ export function ResumeDocument({
       <Page size="A4" style={styles.page}>
         <View>
           <Text style={styles.name}>{fullName}</Text>
-          <View style={styles.contactRow}>
-            {contactParts.map((part) => (
-              <Text key={part} style={styles.contactText}>
-                {part}
-              </Text>
-            ))}
-          </View>
+          {/*
+            One Text with explicit separators, not a flex row of Texts: a row
+            does not wrap, so two long URLs overflowed the page width and their
+            margins collapsed, running the LinkedIn and portfolio links together.
+          */}
+          <Text style={styles.contactText}>{contactParts.join("  ·  ")}</Text>
         </View>
 
         {summary ? (
