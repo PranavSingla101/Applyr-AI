@@ -74,3 +74,7 @@ Thumbs.db
 
 # InsForge project backups (contain user data — never commit)
 backups/
+
+# Playwright CLI scratch output (console logs, page snapshots)
+.playwright-cli/
+.playwright/
