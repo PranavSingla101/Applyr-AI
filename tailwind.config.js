@@ -67,6 +67,7 @@ module.exports = {
         error: {
           DEFAULT: "var(--color-error)",
           foreground: "var(--color-error-foreground)",
+          light: "var(--color-error-light)",
         },
         linkedin: {
           DEFAULT: "var(--color-linkedin)",

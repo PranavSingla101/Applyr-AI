@@ -20,44 +20,73 @@ After building any component — update this file with the component name, file 
 
 ### Auth Page — Login
 File: `app/(auth)/login/page.tsx`
-Last updated: 2026-07-01
+Last updated: 2026-09-23
 
 | Property | Class |
 | --- | --- |
-| Page background | `bg-background` |
-| Split card shell | `rounded-2xl border border-border shadow-[0px_4px_32px_rgba(0,0,0,0.08)] overflow-hidden` |
-| Left panel background | `bg-background` |
-| Right panel background | `bg-surface` |
-| Panel padding | `p-10` |
-| OAuth button background | `bg-surface` |
-| OAuth button border | `border border-border rounded-lg` |
-| OAuth button text | `text-[14px] font-medium text-text-primary` |
-| OAuth button hover | `hover:bg-surface-secondary transition-colors` |
-| OAuth button focus | `focus:outline-none focus:ring-2 focus:ring-accent/40` |
-| OAuth button disabled | `disabled:opacity-50` |
-| OAuth button spacing | `px-4 py-3 gap-3` |
-| Error banner | `bg-error/10 border border-error/20 text-error rounded-lg text-[13px] text-center font-medium p-3.5` |
-| Badge | `bg-surface border border-border rounded-full text-[12px] font-medium text-text-secondary shadow-sm px-3 py-1.5` |
-| Hero heading | `text-[52px] leading-[1.1] font-bold text-text-primary tracking-tight` |
-| Panel heading | `text-[30px] font-bold text-text-primary tracking-tight` |
-| Body text | `text-[15px] leading-[26px] text-text-secondary` |
-| Label text | `text-[14px] text-text-secondary` |
-| Caption text | `text-[13px] text-text-secondary` |
-| Muted caption | `text-[12px] text-text-muted` |
-| Accent glow | `bg-accent/10 blur-[120px] rounded-full pointer-events-none` |
-| Info glow | `bg-info/6 blur-[100px] rounded-full pointer-events-none` |
+| Page shell | `min-h-screen bg-surface grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]` |
+| Form column | `flex flex-col px-6 py-6 sm:px-10 lg:px-14` — logo + "Back to home" top, form centered, terms bottom |
+| Form width | `max-w-[380px]` |
+| Eyebrow pill | Same as homepage Hero badge: `bg-accent-muted border border-accent-light rounded-full px-3 py-1`, dot `bg-accent`, text `text-xs font-medium text-accent` |
+| Heading | `text-[32px] leading-[40px] font-semibold tracking-tight text-text-primary` |
+| Subheading | `text-[15px] leading-6 text-text-secondary` |
+| OAuth button | `h-12 rounded-lg border border-border bg-surface text-[14px] font-medium text-text-primary shadow-[0px_1px_2px_rgba(16,24,40,0.05)]` |
+| OAuth button hover | `hover:border-border-muted hover:bg-surface-secondary transition-colors` |
+| OAuth button focus | `focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2` |
+| OAuth button loading | Provider icon swaps to `Loader2 animate-spin text-text-secondary`, label "Redirecting…", both buttons `disabled:opacity-60` |
+| Error banner | `rounded-lg border border-error bg-error-light px-3.5 py-3 text-[13px] text-error` + `AlertCircle` icon, `role="alert"` |
+| Divider with label | `h-px flex-1 bg-border` either side of `text-xs text-text-muted` + `ShieldCheck` |
+| Info callout | `rounded-xl border border-border bg-surface-secondary p-4`, icon tile `h-8 w-8 rounded-lg bg-accent-light` + `text-accent` icon |
+| Showcase panel | `hidden lg:block p-3` → inner `rounded-3xl bg-overlay p-12 xl:p-14 overflow-hidden` |
+| Showcase dot grid | `opacity-40 bg-[radial-gradient(var(--color-text-slate)_1px,transparent_1px)] [background-size:22px_22px]` |
+| Showcase glows | `rounded-full bg-accent opacity-30 blur-[140px]` and `bg-info opacity-20 blur-[140px]` |
+| Showcase text | Heading `text-[34px] leading-[42px] font-semibold tracking-tight text-surface`, body `text-text-muted` |
+| Floating mock card | `rounded-2xl border border-border bg-surface shadow-[0px_24px_60px_-12px_rgba(0,0,0,0.55)]` |
 
 **Pattern notes:**
-Split-panel layout: left panel = marketing copy on `bg-background`, right panel = auth form on `bg-surface`, separated by `w-px bg-border`. Card shell uses `rounded-2xl` — not `rounded-xl`. OAuth buttons use `py-3` (not `py-2.5`). Focus ring is `accent/40` (not `accent/50`). No `shadow-sm` on buttons.
+Full-bleed split layout with no Navbar: form on the left on `bg-surface`, a dark `bg-overlay` showcase panel inset by `p-3` on the right (hidden below `lg`). The showcase reuses real app components (`MatchScoreBar`, `activityDotClasses`) for its mock cards, so it stays visually in sync with the product. Its copy is illustrative, not user data.
+Colors here are `var(--color-*)` strings in Tailwind v3, so **opacity modifiers (`bg-accent/10`) generate no CSS**. Use a separate `opacity-*` utility on a solid-color element (glows) or a dedicated light token (`bg-error-light`).
+URL `?error=` codes are mapped to readable sentences via `loginErrorMessage()`; raw codes and details never reach the UI.
 
 ---
 
 ### Navbar
 File: `components/layout/Navbar.tsx`
-Last updated: 2026-07-01
+Last updated: 2026-09-23
 
 | Property | Class |
 | --- | --- |
+| Header | `sticky top-0 z-50 border-b border-border bg-[color:color-mix(in_srgb,var(--color-surface)_85%,transparent)] backdrop-blur-md` |
+| Container | `max-w-[1440px] mx-auto px-4 sm:px-8 h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-4`, so the center nav stays truly centered |
+| Logo | `<Logo preload />` from `components/layout/Logo.tsx` |
+| Nav link | `rounded-md px-3 py-2 text-sm font-medium text-text-dark hover:bg-surface-secondary`. App links `hover:text-accent`, marketing links `hover:text-text-primary` |
+| Nav link (active) | `text-accent` + `aria-current="page"`. Color only, no underline |
+| App nav (logged in) | Dashboard / Find Jobs / Profile with `LayoutGrid` / `Search` / `UserRound` icons; labels `hidden md:inline`, so phones get an icon-only row |
+| Marketing nav (logged out) | `/#features`, `/#research`, `/#get-started` anchors, `hidden md:flex` |
+| Sign in link | `hidden sm:inline-flex`, same classes as a marketing nav link |
+| Primary CTA | `bg-text-primary text-accent-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90` + `ArrowRight` nudging on hover |
+| Sign Out | `border border-border px-3 sm:px-4 py-2 rounded-md`, `LogOut` icon only below `sm` |
+
+**Pattern notes:**
+Buttons use `rounded-md`. Use `bg-[color:color-mix(...)]` (with the explicit `color:` hint) for translucent token colors; `/NN` opacity modifiers don't compile in this setup. Anchor targets carry `scroll-mt-24` so the sticky header doesn't cover them. `<html>` has `scroll-smooth` plus `data-scroll-behavior="smooth"`, so Next 16 still jumps instantly on route changes.
+
+---
+
+### Logo
+File: `components/layout/Logo.tsx`
+Last updated: 2026-09-23
+
+| Property | Class |
+| --- | --- |
+| Mark | `public/applyr-mark.png` (transparent "A" cut from `Applyr-AI-Logo.png`), `h-7 w-auto`, `alt=""` |
+| Wordmark | `text-[19px] font-bold leading-7 tracking-tight text-text-darkest` with " AI" in `text-accent`. `tone="light"` switches it to `text-surface` for dark panels |
+| Link | `inline-flex items-center gap-2`, `aria-label="Applyr AI home"` |
+
+**Pattern notes:**
+Use `<Logo />` everywhere: navbar, footer, login. Don't use `Applyr-AI-Logo.png` directly; it has an opaque white background and a stacked lockup that's unreadable at 40px.
+
+---
+| --- |
 | Header background | `bg-surface` |
 | Header border | `border-b border-border` |
 | Header position | `sticky top-0 z-50` |
@@ -68,12 +97,88 @@ Last updated: 2026-07-01
 | Primary CTA | `bg-text-primary text-accent-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity` |
 | Secondary button | `border border-border text-text-primary px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-secondary transition-colors cursor-pointer` |
 | Right group gap | `gap-4` |
+| Sign in link (logged out) | `hidden sm:inline-flex px-3 py-2 text-sm font-medium text-text-dark hover:text-text-primary transition-colors` |
 | Logo image dimensions | `width={630} height={533}` with `className="h-10 w-auto"` |
 | Above-fold image loading | `preload` |
 
 **Pattern notes:**
 Navbar uses `bg-surface` (not `bg-background`). Buttons use `rounded-md` — not `rounded-lg`. Primary CTA uses `hover:opacity-90` pattern (no bg-change on hover). Secondary actions use `hover:bg-surface-secondary`. Nav links have `gap-8` between items.
 The logo keeps the source image's intrinsic 630:533 ratio while CSS controls its rendered height, preventing Next Image aspect-ratio warnings. Above-fold images use Next 16's `preload` prop.
+
+---
+
+### Homepage — Hero
+File: `components/homepage/Hero.tsx`
+Last updated: 2026-09-23
+
+| Property | Class |
+| --- | --- |
+| Section | `relative overflow-hidden bg-surface`, content `pt-20 sm:pt-28`, no bottom padding (the screenshot sits on the section edge) |
+| Pastel glow | `bg-accent-light` + `bg-info-light` blobs at `blur-[110px]`, plus a center `bg-accent opacity-10 blur-[120px]` (recreates the design's pink/blue wash with tokens) |
+| Dot grid | `bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:24px_24px]`, faded with `[mask-image:radial-gradient(ellipse_60%_55%_at_50%_30%,black,transparent)]` |
+| Badge | White pill `border-accent-light pl-1 pr-3 py-1` with inner `bg-accent-light text-accent` "New" chip |
+| Headline | `text-[40px]/[44px] sm:text-[60px]/[64px] lg:text-[72px]/[76px] font-bold tracking-[-0.035em] text-text-primary` |
+| Subtitle | `text-base sm:text-lg leading-relaxed text-text-secondary max-w-xl` |
+| Primary CTA | `rounded-md bg-text-primary px-6 py-3 text-sm font-medium text-accent-foreground` + dark drop shadow + `ArrowRight` |
+| Secondary CTA | `rounded-md border border-border bg-surface px-6 py-3 text-sm font-medium text-text-primary` |
+| Trust row | `Check` in a `h-4 w-4 rounded-full bg-success-lightest` disc, `text-sm text-text-secondary` |
+| Screenshot frame | `rounded-t-2xl border border-b-0 border-border bg-surface-secondary p-2 pb-0` around a `rounded-t-xl` image, with a `bg-accent opacity-20 blur-[90px]` halo behind it |
+| Floating cards | `rounded-2xl border border-border bg-surface p-4 shadow-[0px_16px_40px_-12px_rgba(16,24,40,0.3)]`, `hidden xl:block`, placed at `-left-20` / `-right-16` |
+
+**Pattern notes:**
+Buttons use `rounded-md` (8px). In this config `rounded-lg` is 12px, which the button spec doesn't allow. CTAs go full-width and stack below `sm`. The floating cards reuse `MatchScoreBar` and the badge tokens, and their data is illustrative.
+
+---
+
+### Homepage — Bottom CTA
+File: `components/homepage/BottomCTA.tsx`
+Last updated: 2026-09-23
+
+| Property | Class |
+| --- | --- |
+| Section | `bg-surface`, container `px-4 sm:px-8`. No vertical padding: the Testimonial's `py-24` above and the Footer's `py-16` below set the spacing |
+| Dark panel | `relative overflow-hidden rounded-3xl bg-overlay px-6 py-16 sm:px-12 sm:py-24` |
+| Dot grid / glows | Same as the login showcase: dot grid `opacity-40`, `bg-accent opacity-40 blur-[140px]` top-center, `bg-info opacity-20` bottom-right |
+| Dark pill | `rounded-full border border-text-slate bg-text-black px-3 py-1` + `text-xs font-medium text-surface` |
+| Heading | `text-[32px] leading-[40px] sm:text-[44px] sm:leading-[52px] font-semibold tracking-tight text-surface` |
+| Primary CTA (on dark) | `rounded-md bg-accent px-6 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-dark shadow-[0px_8px_24px_-6px_var(--color-accent)]` + `ArrowRight` nudging on hover |
+| Secondary CTA (on dark) | `rounded-md border border-text-slate bg-text-black px-6 py-3 text-sm font-medium text-surface hover:border-text-slate-medium` |
+| Step chips | `h-6 w-6 rounded-full border border-text-slate bg-text-black text-xs text-surface` + `text-sm text-text-muted` label |
+
+**Pattern notes:**
+The dark `bg-overlay` panel matches the login showcase. On dark surfaces, use `text-surface` for primary text, `text-text-muted` for secondary text, and `border-text-slate` / `bg-text-black` for chips and outlines. Never use `text-white` or `bg-white/NN`. Buttons go full-width and stack below `sm`.
+
+---
+
+### Footer
+File: `components/layout/Footer.tsx`
+Last updated: 2026-09-23
+
+| Property | Class |
+| --- | --- |
+| Shell | `relative overflow-hidden bg-surface`, no top border (the CTA panel above separates it), container `px-4 sm:px-8` |
+| Top grid | `grid gap-12 py-16 lg:grid-cols-12 lg:gap-8`: brand `lg:col-span-5`, links `lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8` |
+| Brand | `<Logo />` + `max-w-sm text-sm leading-relaxed text-text-secondary` blurb |
+| "Powered by" chips | `rounded-full border border-border bg-surface-secondary px-2.5 py-0.5 text-xs font-medium text-text-secondary`, label `text-xs text-text-muted` |
+| Column heading | `text-sm font-semibold text-text-primary` |
+| Column link | `text-sm text-text-secondary hover:text-accent`, `space-y-3` |
+| Bottom bar | `border-t border-border py-6`: © left, "Back to top" + `ArrowUp` right. `flex-col-reverse` below `sm` |
+| Closing wordmark | `text-[22vw] font-bold leading-[0.8] tracking-[-0.06em] bg-gradient-to-b from-border to-transparent bg-clip-text text-transparent`, wrapper `-mb-[5vw]` so the footer's `overflow-hidden` crops it. `aria-hidden` |
+
+**Pattern notes:**
+Link lists come from `lib/navigation.ts` (`APP_LINKS`, `MARKETING_LINKS`), shared with the Navbar. They live outside `Navbar.tsx` because a server component importing a value from a `"use client"` module gets a client reference, not the data. The "Powered by" chips name only services the app really uses.
+
+---
+| --- |
+| Shell | `bg-surface`, no top border, container `px-4 sm:px-8` (lines up with the CTA panel edges) |
+| Top row | `grid grid-cols-2 gap-x-8 gap-y-10 py-16 md:grid-cols-4`. Brand block `col-span-2 max-w-sm`, one column per link group |
+| Brand blurb | `max-w-xs`, `mt-4 text-sm leading-relaxed text-text-secondary` |
+| Column heading | `text-xs font-medium uppercase tracking-wider text-text-muted` |
+| Column link | `text-sm font-medium text-text-secondary hover:text-text-primary transition-colors`, `space-y-3` |
+| Bottom bar | `border-t border-border py-6`, `text-sm text-text-muted`, stacks below `sm` |
+
+**Pattern notes:**
+Testimonial → Bottom CTA → Footer is one continuous `bg-surface` run: the Testimonial keeps only `border-t`, and the CTA and Footer have no borders.
 
 ---
 

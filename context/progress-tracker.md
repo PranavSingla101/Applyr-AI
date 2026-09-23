@@ -14,6 +14,16 @@ Feature 13 (Company Research Agent) shipped but remains **degraded** — see the
 
 **Open blocker — company domain resolution.** Browser research works end to end (Browserbase session, Gemini extraction, sub-page selection all verified live), but it never gets a company URL to visit: **Adzuna blocks both server-side `fetch` and Browserbase's datacenter IPs**, so the tracking `redirect_url` cannot be followed to the employer's real site. Every run therefore falls back to guessing `https://www.{companySlug}.com`, which is wrong for most non-US company names. The UI reports this honestly (amber "partial" banner), so it is not silently broken — but no dossier has yet been built from a real company website. Unexplored options, in rough order of promise: (1) Browserbase residential proxies (`proxies: true` — one attempt failed to create a session, so the plan may not include them); (2) resolve the domain with a search engine in the browser instead of following Adzuna; (3) ask the AI for the company's likely domain and verify it loads. Also unresolved: the Gemini free tier allows ~20 requests/day on `3.6-flash`, roughly one or two full runs.
 
+**2026-09-23 — Login page redesign.** `app/(auth)/login/page.tsx` rebuilt as a split layout: form column plus a dark product-showcase panel. Added `--color-error-light` token. Also fixed two bugs: the old page's `bg-accent/10`, `bg-info/6` and `bg-error/10` classes generated no CSS (opacity modifiers don't work on var-based colors), and raw OAuth error codes were shown to users.
+
+**2026-09-23 — Homepage bottom CTA + footer redesign.** `BottomCTA` is now a dark inset panel that matches the login showcase, using tokens only. `Footer` now has brand and link columns and is responsive. Known bugs are logged in `bugs.md` at the repo root (opacity modifiers on token colors produce no CSS in 11 places, a non-responsive Features grid, an off-brand/out-of-scope agent-log screenshot).
+
+**2026-09-23 — Homepage hero + navbar polish.** The Hero brings back the design's pastel glow (with tokens), uses larger, tighter type, adds a trust row, and frames the dashboard screenshot with floating match and research cards. Logged-out Navbar gains a "Sign in" link. Homepage buttons standardized on `rounded-md`.
+
+**2026-09-23 — Navbar + Logo.** New shared `Logo` component (transparent mark + text wordmark) used in the navbar, footer and login page. The navbar is now translucent and blurred, with a centered grid layout. Logged-out visitors get section anchors (Features / Company research / How it works); logged-in nav gets icons and an icon-only mobile layout.
+
+**2026-09-23 — Footer redesign.** 12-column layout: brand block with "Powered by" chips, three link columns (Product / Explore / Account), a bottom bar with back-to-top, and an oversized cropped wordmark. Nav link lists moved to `lib/navigation.ts`.
+
 ---
 
 ## Progress

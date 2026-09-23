@@ -93,6 +93,7 @@ className="bg-purple-500 text-gray-600"
   /* Error — red */
   --color-error: #ef4444;
   --color-error-foreground: #ffffff;
+  --color-error-light: #fef2f2;
 
   /* LinkedIn brand */
   --color-linkedin: #0a66c2;

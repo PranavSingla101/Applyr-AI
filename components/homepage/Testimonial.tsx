@@ -3,7 +3,7 @@ import userIcon from "@/public/images/user-icon.png";
 
 export function Testimonial() {
   return (
-    <section className="w-full bg-surface border-y border-border">
+    <section className="w-full bg-surface border-t border-border">
       <div className="max-w-[1440px] mx-auto px-8 py-24 flex flex-col items-center text-center">
         <p className="text-2xl font-semibold text-text-primary max-w-2xl leading-relaxed">
           &ldquo;I used to spend my evenings copy-pasting resumes. Now I open

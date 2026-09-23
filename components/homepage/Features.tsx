@@ -43,7 +43,7 @@ export function Features() {
     <section className="w-full bg-background">
       <div className="max-w-[1440px] mx-auto px-8 py-24 flex flex-col gap-32">
         {/* Feature 1 — text left, image right */}
-        <div className="grid grid-cols-2 gap-16 items-center">
+        <div id="features" className="scroll-mt-24 grid grid-cols-2 gap-16 items-center">
           <div className="flex flex-col gap-8">
             <div>
               <span className="text-xs font-medium text-accent uppercase tracking-widest">
@@ -86,7 +86,7 @@ export function Features() {
         </div>
 
         {/* Feature 2 — image left, text right */}
-        <div className="grid grid-cols-2 gap-16 items-center">
+        <div id="research" className="scroll-mt-24 grid grid-cols-2 gap-16 items-center">
           <div className="rounded-2xl border border-border shadow-[0px_4px_24px_rgba(0,0,0,0.08)] overflow-hidden">
             <Image
               src={agentLogShot}
